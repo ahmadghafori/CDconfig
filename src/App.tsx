@@ -168,9 +168,9 @@ function findJsonSearchMatch(data: any, query: string): JsonSearchMatch | null {
               },
             });
           },
-          onComplete: (finalResult) => {
+          onComplete: async (finalResult) => {
+            await saveCachedClusterResult(activeConf, finalResult);
             if (JSON.stringify(serviceConfig) !== JSON.stringify(activeConf)) setServiceConfig(activeConf);
-            void saveCachedClusterResult(activeConf, finalResult);
             setIsLoading(false);
             setIsStreaming(false);
             setDataResult(finalResult);
@@ -1652,7 +1652,6 @@ function findJsonSearchMatch(data: any, query: string): JsonSearchMatch | null {
         config={serviceConfig}
         onSaveConfig={handleSaveConfig}
         onUploadCustomJson={handleUploadCustomJson}
-        onRefreshData={() => loadData(serviceConfig)}
       />
     </div>
   );
