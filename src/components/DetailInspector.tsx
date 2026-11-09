@@ -622,9 +622,16 @@ function renderProductPipeline(
                 <div className="flex items-center gap-2 text-rose-300 text-xs font-semibold">
                   <AlertTriangle className="w-4 h-4 shrink-0" />
                   <span>خطا در {operationLabels[operation]}</span>
-                  {typeof failure.statusCode === 'number' && (
+                  {(typeof failure.httpStatus === 'number' ||
+                    typeof failure.statusCode === 'number') && (
                     <span className="mr-auto font-mono text-[10px] text-rose-200">
-                      HTTP {failure.statusCode}
+                      {typeof failure.httpStatus === 'number'
+                        ? `HTTP ${failure.httpStatus}`
+                        : `کد سرویس ${failure.statusCode}`}
+                      {typeof failure.httpStatus === 'number' &&
+                        typeof failure.statusCode === 'number' &&
+                        failure.statusCode !== failure.httpStatus &&
+                        ` | کد سرویس ${failure.statusCode}`}
                     </span>
                   )}
                 </div>
