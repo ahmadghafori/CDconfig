@@ -132,7 +132,7 @@ function findJsonSearchMatch(data: any, query: string): JsonSearchMatch | null {
       const targetUrl = activeConf.defaultSource === 'mock' ? activeConf.mockDataUrl : activeConf.serviceUrl;
 
       // Reuse the last successful tree on startup; explicit refresh bypasses this cache.
-      const cachedResult = forceRefresh ? null : getCachedClusterResult(activeConf);
+      const cachedResult = forceRefresh ? null : await getCachedClusterResult(activeConf);
       if (cachedResult) {
         if (JSON.stringify(serviceConfig) !== JSON.stringify(activeConf)) setServiceConfig(activeConf);
         setDataResult(cachedResult);
@@ -170,7 +170,7 @@ function findJsonSearchMatch(data: any, query: string): JsonSearchMatch | null {
           },
           onComplete: (finalResult) => {
             if (JSON.stringify(serviceConfig) !== JSON.stringify(activeConf)) setServiceConfig(activeConf);
-            saveCachedClusterResult(activeConf, finalResult);
+            void saveCachedClusterResult(activeConf, finalResult);
             setIsLoading(false);
             setIsStreaming(false);
             setDataResult(finalResult);
