@@ -360,6 +360,22 @@ function findJsonSearchMatch(data: any, query: string): JsonSearchMatch | null {
         rawResponse: response.rawResponse,
       });
 
+      const recordOperation = (
+        previous: ProductActionState | undefined,
+        operation: 'helm' | 'publish' | 'module',
+        status: 'success' | 'error',
+        message: string,
+        response?: any
+      ) => ({
+        ...previous?.operationHistory,
+        [operation]: {
+          status,
+          message,
+          timestamp: new Date().toISOString(),
+          response: response ?? null,
+        },
+      });
+
       const failureFromException = (
         operation: 'helm' | 'publish' | 'module',
         error: unknown
@@ -417,6 +433,7 @@ function findJsonSearchMatch(data: any, query: string): JsonSearchMatch | null {
                   ...prev[productId]?.operationErrors,
                   helm: failure,
                 },
+                operationHistory: recordOperation(prev[productId], 'helm', 'error', failure.message, response),
                 lastResponse: response,
               },
             }));
@@ -435,6 +452,7 @@ function findJsonSearchMatch(data: any, query: string): JsonSearchMatch | null {
                 step: 'error',
                 errorMessage: failure.message,
                 operationErrors: { ...prev[productId]?.operationErrors, helm: failure },
+                operationHistory: recordOperation(prev[productId], 'helm', 'error', failure.message, response),
                 lastResponse: response,
               },
             }));
@@ -460,6 +478,7 @@ function findJsonSearchMatch(data: any, query: string): JsonSearchMatch | null {
                 prev[productId]?.operationErrors,
                 'helm'
               ),
+              operationHistory: recordOperation(prev[productId], 'helm', 'success', response.message || 'ساخت HelmChart با موفقیت انجام شد.', response),
               lastResponse: response,
             },
           }));
@@ -472,6 +491,7 @@ function findJsonSearchMatch(data: any, query: string): JsonSearchMatch | null {
               step: 'error',
               errorMessage: failure.message,
               operationErrors: { ...prev[productId]?.operationErrors, helm: failure },
+              operationHistory: recordOperation(prev[productId], 'helm', 'error', failure.message),
               lastMessage: failure.message,
             },
           }));
@@ -529,6 +549,7 @@ function findJsonSearchMatch(data: any, query: string): JsonSearchMatch | null {
                   ...prev[productId]?.operationErrors,
                   publish: failure,
                 },
+                operationHistory: recordOperation(prev[productId], 'publish', 'error', failure.message, response),
                 lastResponse: response,
               },
             }));
@@ -548,6 +569,7 @@ function findJsonSearchMatch(data: any, query: string): JsonSearchMatch | null {
                 prev[productId]?.operationErrors,
                 'publish'
               ),
+              operationHistory: recordOperation(prev[productId], 'publish', 'success', response.message || 'ثبت Package با موفقیت انجام شد.', response),
               lastResponse: response,
             },
           }));
@@ -561,6 +583,7 @@ function findJsonSearchMatch(data: any, query: string): JsonSearchMatch | null {
               errorMessage: failure.message,
               lastMessage: failure.message,
               operationErrors: { ...prev[productId]?.operationErrors, publish: failure },
+              operationHistory: recordOperation(prev[productId], 'publish', 'error', failure.message),
             },
           }));
         }
@@ -609,6 +632,7 @@ function findJsonSearchMatch(data: any, query: string): JsonSearchMatch | null {
                   ...prev[productId]?.operationErrors,
                   module: failure,
                 },
+                operationHistory: recordOperation(prev[productId], 'module', 'error', failure.message, response),
                 lastResponse: response,
               },
             }));
@@ -627,6 +651,7 @@ function findJsonSearchMatch(data: any, query: string): JsonSearchMatch | null {
                 prev[productId]?.operationErrors,
                 'module'
               ),
+              operationHistory: recordOperation(prev[productId], 'module', 'success', response.message || 'ساخت ModuleProduct با موفقیت انجام شد.', response),
               lastResponse: response,
             },
           }));
@@ -640,6 +665,7 @@ function findJsonSearchMatch(data: any, query: string): JsonSearchMatch | null {
               errorMessage: failure.message,
               lastMessage: failure.message,
               operationErrors: { ...prev[productId]?.operationErrors, module: failure },
+              operationHistory: recordOperation(prev[productId], 'module', 'error', failure.message),
             },
           }));
         }
