@@ -23,6 +23,7 @@ interface TopNavbarProps {
   onToggleFilterEmpty: (val: boolean) => void;
   searchQuery: string;
   onSearchChange: (val: string) => void;
+  searchFeedback?: { status: 'found' | 'notFound'; label?: string };
   totalCount: number;
   activeCount: number;
   isStreaming?: boolean;
@@ -44,6 +45,7 @@ export const TopNavbar: React.FC<TopNavbarProps> = ({
   onToggleFilterEmpty,
   searchQuery,
   onSearchChange,
+  searchFeedback,
   totalCount,
   activeCount,
   isStreaming = false,
@@ -147,6 +149,20 @@ export const TopNavbar: React.FC<TopNavbarProps> = ({
               >
                 ✕
               </button>
+            )}
+            {searchQuery.trim() && searchFeedback && (
+              <div
+                className={`absolute right-0 top-full mt-1 z-50 max-w-full px-3 py-1.5 rounded-lg border text-[11px] shadow-xl whitespace-nowrap ${
+                  searchFeedback.status === 'found'
+                    ? 'bg-emerald-950 border-emerald-700/70 text-emerald-300'
+                    : 'bg-rose-950 border-rose-700/70 text-rose-300'
+                }`}
+                role="status"
+              >
+                {searchFeedback.status === 'found'
+                  ? `پیدا شد: ${searchFeedback.label || searchQuery} — در گراف انتخاب شد`
+                  : 'موردی با این عبارت پیدا نشد'}
+              </div>
             )}
           </div>
 
