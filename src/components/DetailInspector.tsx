@@ -602,6 +602,43 @@ function renderProductPipeline(
         </div>
       </div>
 
+      {/* Persistent per-operation history */}
+      {actionState?.operationHistory && (
+        <div className="p-3 rounded-lg border border-slate-700 bg-slate-950/70 space-y-2">
+          <div className="text-xs font-semibold text-slate-200">سوابق آخرین وضعیت عملیات</div>
+          {(['helm', 'publish', 'module'] as const).map((operation) => {
+            const entry = actionState.operationHistory?.[operation];
+            if (!entry) return null;
+            const labels = {
+              helm: 'ساخت HelmChart',
+              publish: 'ثبت Package در Registry',
+              module: 'ساخت ModuleProduct',
+            };
+            const successful = entry.status === 'success';
+            const interrupted = entry.status === 'interrupted';
+            return (
+              <div key={operation} className="border-t border-slate-800 pt-2 space-y-1">
+                <div className="flex items-center gap-2 text-[11px]">
+                  {successful ? (
+                    <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400" />
+                  ) : (
+                    <AlertTriangle className="w-3.5 h-3.5 text-rose-400" />
+                  )}
+                  <span className="text-slate-200 font-medium">{labels[operation]}</span>
+                  <span className={successful ? 'mr-auto text-emerald-400' : 'mr-auto text-rose-300'}>
+                    {successful ? 'موفق' : interrupted ? 'متوقف‌شده' : 'ناموفق'}
+                  </span>
+                </div>
+                <p className="text-[10px] text-slate-300 break-words">{entry.message}</p>
+                <div className="text-[9px] text-slate-500 font-mono" dir="ltr">
+                  {new Date(entry.timestamp).toLocaleString()}
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      )}
+
       {/* Operation-specific error details */}
       {actionState?.operationErrors &&
         (Object.keys(actionState.operationErrors) as Array<'helm' | 'publish' | 'module'>)
@@ -800,15 +837,14 @@ function renderProductPipeline(
       </div>
 
       {/* STEP 2: Registry Warning & Retry */}
-      {(hasRegistryWarning || actionState?.step === 'helm_warning_registry') && (
+      {!!actionState?.packageGuid && (
         <div className="p-3 rounded-lg border border-amber-600/70 bg-amber-950/40 space-y-2 animate-in fade-in">
           <div className="flex items-center gap-1.5 text-xs font-semibold text-amber-300">
             <AlertTriangle className="w-4 h-4 text-amber-400 shrink-0" />
-            <span>هشدار: پکیج در Helm Registry یافت نشد!</span>
+            <span>{hasRegistryWarning ? 'هشدار: پکیج در Helm Registry یافت نشد!' : 'ثبت مجدد / استعلام وضعیت Package'}</span>
           </div>
           <p className="text-[11px] text-amber-200/90 leading-relaxed font-mono">
-            {actionState?.errorMessage ||
-              'Package was not found in the Helm registry after max attempts.'}
+            {hasRegistryWarning ? (actionState?.errorMessage || 'Package was not found in the Helm registry after max attempts.') : 'برای بررسی مجدد وضعیت ثبت پکیج، می‌توانید این عملیات را دوباره اجرا کنید.'}
           </p>
           <button
             onClick={() => {
@@ -825,7 +861,7 @@ function renderProductPipeline(
             ) : (
               <>
                 <RefreshCw className="w-3.5 h-3.5" />
-                <span>تلاش دوباره برای ثبت package</span>
+                <span>استعلام مجدد / تلاش دوباره برای ثبت Package</span>
               </>
             )}
           </button>
