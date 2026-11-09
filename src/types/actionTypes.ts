@@ -25,6 +25,18 @@ export interface SubStatusItem {
   subActionType?: number;
 }
 
+export type ProductActionOperation = 'helm' | 'publish' | 'module';
+
+export interface OperationFailure {
+  operation: ProductActionOperation;
+  message: string;
+  statusCode?: number;
+  requestId?: string | null;
+  exception?: any;
+  subStatuses?: SubStatusItem[];
+  rawResponse?: string;
+}
+
 export interface ApiResponse<T = any> {
   data: T;
   statusCode: number;
@@ -39,6 +51,7 @@ export interface ApiResponse<T = any> {
   resourceText?: string | null;
   resourceVersion?: string | null;
   noLog?: boolean;
+  rawResponse?: string;
   isSuccessful: boolean;
 }
 
@@ -74,5 +87,6 @@ export interface ProductActionState {
   errorMessage?: string | null;
   requiresPublishRetry?: boolean;
   lastResponse?: any;
+  operationErrors?: Partial<Record<ProductActionOperation, OperationFailure>>;
   timestamp?: string;
 }
