@@ -129,12 +129,12 @@ function findJsonSearchMatch(data: any, query: string): JsonSearchMatch | null {
     try {
       const runtimeConfig = await loadRuntimeConfig();
       const activeConf: ServiceConfig = { ...runtimeConfig, ...(customConfig || {}) };
-      if (JSON.stringify(serviceConfig) !== JSON.stringify(activeConf)) setServiceConfig(activeConf);
       const targetUrl = activeConf.defaultSource === 'mock' ? activeConf.mockDataUrl : activeConf.serviceUrl;
 
       // Reuse the last successful tree on startup; explicit refresh bypasses this cache.
       const cachedResult = forceRefresh ? null : getCachedClusterResult(activeConf);
       if (cachedResult) {
+        if (JSON.stringify(serviceConfig) !== JSON.stringify(activeConf)) setServiceConfig(activeConf);
         setDataResult(cachedResult);
         setIsLoading(false);
         setIsStreaming(false);
@@ -169,6 +169,7 @@ function findJsonSearchMatch(data: any, query: string): JsonSearchMatch | null {
             });
           },
           onComplete: (finalResult) => {
+            if (JSON.stringify(serviceConfig) !== JSON.stringify(activeConf)) setServiceConfig(activeConf);
             saveCachedClusterResult(activeConf, finalResult);
             setIsLoading(false);
             setIsStreaming(false);
@@ -309,7 +310,6 @@ function findJsonSearchMatch(data: any, query: string): JsonSearchMatch | null {
   const handleSaveConfig = (newConfig: ServiceConfig) => {
     setServiceConfig(newConfig);
     saveActiveServiceConfig(newConfig);
-    void loadData(newConfig, true);
   };
 
   // When clicking on a cluster item in Topology view, jump to it or inspect it
