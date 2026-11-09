@@ -1,4 +1,4 @@
-import { API_CONFIG, ServiceConfig, STORAGE_KEY_CONFIG } from '../config/apiConfig';
+import { API_CONFIG, ServiceConfig, STORAGE_KEY_CONFIG, STORAGE_KEY_CLUSTER_CACHE, STORAGE_KEY_PRODUCT_ACTIONS } from '../config/apiConfig';
 import { ClusterItem } from '../types/dataTypes';
 import { ProductActionState } from '../types/actionTypes';
 
@@ -60,9 +60,6 @@ export interface StreamCallbacks {
 }
 
 let cachedRuntimeConfig: Partial<ServiceConfig> | null = null;
-
-const STORAGE_KEY_CLUSTER_CACHE = 'json_crack_cluster_tree_cache_v1';
-const STORAGE_KEY_PRODUCT_ACTIONS = 'json_crack_product_action_states_v1';
 
 function getClusterCacheKey(config: ServiceConfig): string {
   return JSON.stringify({ source: config.defaultSource, serviceUrl: config.serviceUrl, mockDataUrl: config.mockDataUrl });
