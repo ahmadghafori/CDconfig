@@ -220,11 +220,10 @@ export default function App() {
     setCurrentView('graph');
   };
 
-  // اجرای اکشن‌های پایپ‌لاین محصول (HelmChart, Publish Retry, ModuleProduct)
+  // Execute product pipeline operations and retain errors independently per operation.
   const handleExecuteAction = useCallback(
     async (productId: string, actionType: 'helm' | 'publish' | 'module') => {
-      // پیدا کردن متادیتاهای محصول
-      const nodeWithMeta = nodes.find((n) => n.actionMetadata?.productId === productId);
+      const nodeWithMeta = nodes.find((node) => node.actionMetadata?.productId === productId);
       const meta = nodeWithMeta?.actionMetadata;
       const currentState = productActionStates[productId];
 
@@ -232,169 +231,149 @@ export default function App() {
       const projectGuid = meta?.projectGuid || currentState?.projectGuid || '';
       const productName = meta?.productName || currentState?.productName || 'محصول';
 
+      const clearOperationError = (
+        errors: ProductActionState['operationErrors'],
+        operation: 'helm' | 'publish' | 'module'
+      ) => {
+        const next = { ...(errors || {}) };
+        delete next[operation];
+        return next;
+      };
+
+      const failureFromResponse = (
+        operation: 'helm' | 'publish' | 'module',
+        response: any
+      ) => ({
+        operation,
+        message: response.message || 'عملیات ناموفق بود.',
+        statusCode: response.statusCode,
+        requestId: response.requestId,
+        exception: response.exception,
+        subStatuses: response.subStatuses,
+        rawResponse: response.rawResponse,
+      });
+
+      const failureFromException = (
+        operation: 'helm' | 'publish' | 'module',
+        error: unknown
+      ) => ({
+        operation,
+        message:
+          error instanceof Error
+            ? error.message
+            : typeof error === 'string'
+            ? error
+            : 'خطای پیش‌بینی‌نشده هنگام اجرای عملیات.',
+      });
+
       if (actionType === 'helm') {
         setProductActionStates((prev) => ({
           ...prev,
           [productId]: {
+            ...prev[productId],
             productId,
             productName,
             branchGuid,
             projectGuid,
             step: 'building_helm',
-            packageGuid: prev[productId]?.packageGuid || null,
             requiresPublishRetry: false,
             errorMessage: null,
+            operationErrors: clearOperationError(prev[productId]?.operationErrors, 'helm'),
             lastMessage: 'در حال ارسال درخواست ساخت HelmChart...',
             timestamp: new Date().toLocaleTimeString('fa-IR'),
           },
         }));
 
         try {
-          const res = await executeBuildHelmChart(
+          const response = await executeBuildHelmChart(
             { branchGuid, projectGuid, productGuid: productId },
             serviceConfig
           );
+          const isRegistryWarning = checkIsRegistryNotFoundError(response);
 
-          const isRegistryWarning = checkIsRegistryNotFoundError(res);
-
-          if (res.isSuccessful && res.data) {
-            if (isRegistryWarning) {
-              setProductActionStates((prev) => ({
-                ...prev,
-                [productId]: {
-                  ...prev[productId],
-                  step: 'helm_warning_registry',
-                  requiresPublishRetry: true,
-                  helmBuildData: res.data,
-                  packageGuid: res.data.packageGuid_SC || prev[productId]?.packageGuid || null,
-                  lastMessage:
-                    res.message ||
-                    'پکیج در رجیستری هلم یافت نشد. دکمه ثبت دوباره فعال شد.',
-                  errorMessage: res.message,
-                  lastResponse: res,
-                },
-              }));
-            } else {
-              setProductActionStates((prev) => ({
-                ...prev,
-                [productId]: {
-                  ...prev[productId],
-                  step: 'helm_success',
-                  requiresPublishRetry: false,
-                  helmBuildData: res.data,
-                  packageGuid: res.data.packageGuid_SC,
-                  lastMessage: res.message || 'ساخت چارت هلم با موفقیت انجام شد.',
-                  lastResponse: res,
-                },
-              }));
-            }
-          } else {
-            if (isRegistryWarning) {
-              setProductActionStates((prev) => ({
-                ...prev,
-                [productId]: {
-                  ...prev[productId],
-                  step: 'helm_warning_registry',
-                  requiresPublishRetry: true,
-                  errorMessage:
-                    res.message || 'پکیج در رجیستری هلم یافت نشد پس از تلاش‌های مکرر.',
-                  lastMessage: res.message,
-                  lastResponse: res,
-                },
-              }));
-            } else {
-              setProductActionStates((prev) => ({
-                ...prev,
-                [productId]: {
-                  ...prev[productId],
-                  step: 'error',
-                  errorMessage: res.message || 'خطا در اجرای سرویس ساخت HelmChart',
-                  lastResponse: res,
-                },
-              }));
-            }
-          }
-        } catch (err: any) {
-          setProductActionStates((prev) => ({
-            ...prev,
-            [productId]: {
-              ...prev[productId],
-              step: 'error',
-              errorMessage: err.message || 'خطای غیرمنتظره در ارتباط با وب‌سرویس',
-            },
-          }));
-        }
-      } else if (actionType === 'publish') {
-        setProductActionStates((prev) => ({
-          ...prev,
-          [productId]: {
-            ...prev[productId],
-            step: 'publishing_package',
-            lastMessage: 'در حال تلاش دوباره برای ثبت در رجیستری هلم...',
-            errorMessage: null,
-          },
-        }));
-
-        try {
-          const packageGuid =
-            currentState?.packageGuid ||
-            currentState?.helmBuildData?.packageGuid_SC ||
-            '';
-          const res = await executeRetryPublishPackage(
-            {
-              version: currentState?.helmBuildData?.version || '0.0.0',
-              packageGuid_SC: packageGuid,
-              packageName:
-                currentState?.helmBuildData?.packageName ||
-                `Product-${productId.slice(0, 8)}`,
-              solutionName:
-                currentState?.helmBuildData?.solutionName || 'Solution',
-              product: productId,
-            },
-            serviceConfig
-          );
-
-          if (res.isSuccessful) {
-            const newPackageGuid = res.data || packageGuid;
+          if (!response.isSuccessful) {
+            const failure = failureFromResponse('helm', response);
             setProductActionStates((prev) => ({
               ...prev,
               [productId]: {
                 ...prev[productId],
-                step: 'package_published',
-                requiresPublishRetry: false,
-                packageGuid: newPackageGuid,
-                lastMessage:
-                  res.message || 'ثبت پکیج در رجیستری با موفقیت انجام شد.',
-                lastResponse: res,
+                step: isRegistryWarning ? 'helm_warning_registry' : 'error',
+                requiresPublishRetry: isRegistryWarning,
+                helmBuildData: response.data || prev[productId]?.helmBuildData || null,
+                packageGuid:
+                  response.data?.packageGuid_SC ||
+                  prev[productId]?.packageGuid ||
+                  null,
+                errorMessage: failure.message,
+                lastMessage: failure.message,
+                operationErrors: {
+                  ...prev[productId]?.operationErrors,
+                  helm: failure,
+                },
+                lastResponse: response,
               },
             }));
-          } else {
+            return;
+          }
+
+          if (!response.data) {
+            const failure = failureFromResponse('helm', {
+              ...response,
+              message: response.message || 'پاسخ موفق بود اما اطلاعات HelmChart خالی است.',
+            });
             setProductActionStates((prev) => ({
               ...prev,
               [productId]: {
                 ...prev[productId],
                 step: 'error',
-                errorMessage: res.message || 'خطا در ثبت دوباره پکیج در رجیستری',
-                lastResponse: res,
+                errorMessage: failure.message,
+                operationErrors: { ...prev[productId]?.operationErrors, helm: failure },
+                lastResponse: response,
               },
             }));
+            return;
           }
-        } catch (err: any) {
+
+          setProductActionStates((prev) => ({
+            ...prev,
+            [productId]: {
+              ...prev[productId],
+              step: isRegistryWarning ? 'helm_warning_registry' : 'helm_success',
+              requiresPublishRetry: isRegistryWarning,
+              helmBuildData: response.data,
+              packageGuid:
+                response.data.packageGuid_SC || prev[productId]?.packageGuid || null,
+              lastMessage:
+                response.message ||
+                (isRegistryWarning
+                  ? 'پکیج در رجیستری هلم یافت نشد. ثبت مجدد در دسترس است.'
+                  : 'ساخت چارت هلم با موفقیت انجام شد.'),
+              errorMessage: isRegistryWarning ? response.message : null,
+              operationErrors: clearOperationError(
+                prev[productId]?.operationErrors,
+                'helm'
+              ),
+              lastResponse: response,
+            },
+          }));
+        } catch (error) {
+          const failure = failureFromException('helm', error);
           setProductActionStates((prev) => ({
             ...prev,
             [productId]: {
               ...prev[productId],
               step: 'error',
-              errorMessage: err.message || 'خطای شبکه در ثبت دوباره رجیستری',
+              errorMessage: failure.message,
+              operationErrors: { ...prev[productId]?.operationErrors, helm: failure },
+              lastMessage: failure.message,
             },
           }));
         }
-      } else if (actionType === 'module') {
-        const packageGuid = currentState?.packageGuid;
+      } else if (actionType === 'publish') {
+        const packageGuid =
+          currentState?.packageGuid || currentState?.helmBuildData?.packageGuid_SC || '';
         if (!packageGuid) {
-          alert(
-            'ابتدا باید مرحله ساخت HelmChart یا ثبت Package با موفقیت انجام شود تا PackageGuid تولید گردد.'
-          );
+          alert('ابتدا باید HelmChart ساخته شود تا PackageGuid در دسترس باشد.');
           return;
         }
 
@@ -402,48 +381,158 @@ export default function App() {
           ...prev,
           [productId]: {
             ...prev[productId],
-            step: 'adding_module',
-            lastMessage: 'در حال ایجاد ماژول محصول (AddModuleProduct)...',
+            productId,
+            productName,
+            branchGuid,
+            projectGuid,
+            step: 'publishing_package',
+            lastMessage: 'در حال تلاش دوباره برای ثبت در رجیستری هلم...',
             errorMessage: null,
+            operationErrors: clearOperationError(
+              prev[productId]?.operationErrors,
+              'publish'
+            ),
           },
         }));
 
         try {
-          const res = await executeAddModuleProduct(
-            packageGuid,
-            { branchGuid, projectGuid, productGuid: productId },
+          const response = await executeRetryPublishPackage(
+            {
+              version: currentState?.helmBuildData?.version || '0.0.0',
+              packageGuid_SC: packageGuid,
+              packageName:
+                currentState?.helmBuildData?.packageName ||
+                `Product-${productId.slice(0, 8)}`,
+              solutionName: currentState?.helmBuildData?.solutionName || 'Solution',
+              product: productId,
+            },
             serviceConfig
           );
 
-          if (res.isSuccessful) {
-            setProductActionStates((prev) => ({
-              ...prev,
-              [productId]: {
-                ...prev[productId],
-                step: 'module_success',
-                moduleGuid: res.data,
-                lastMessage: res.message || 'ماژول محصول با موفقیت ایجاد شد.',
-                lastResponse: res,
-              },
-            }));
-          } else {
+          if (!response.isSuccessful) {
+            const failure = failureFromResponse('publish', response);
             setProductActionStates((prev) => ({
               ...prev,
               [productId]: {
                 ...prev[productId],
                 step: 'error',
-                errorMessage: res.message || 'خطای سرور در ساخت ماژول محصول',
-                lastResponse: res,
+                errorMessage: failure.message,
+                lastMessage: failure.message,
+                operationErrors: {
+                  ...prev[productId]?.operationErrors,
+                  publish: failure,
+                },
+                lastResponse: response,
               },
             }));
+            return;
           }
-        } catch (err: any) {
+
+          setProductActionStates((prev) => ({
+            ...prev,
+            [productId]: {
+              ...prev[productId],
+              step: 'package_published',
+              requiresPublishRetry: false,
+              packageGuid: response.data || packageGuid,
+              lastMessage: response.message || 'ثبت پکیج در رجیستری با موفقیت انجام شد.',
+              errorMessage: null,
+              operationErrors: clearOperationError(
+                prev[productId]?.operationErrors,
+                'publish'
+              ),
+              lastResponse: response,
+            },
+          }));
+        } catch (error) {
+          const failure = failureFromException('publish', error);
           setProductActionStates((prev) => ({
             ...prev,
             [productId]: {
               ...prev[productId],
               step: 'error',
-              errorMessage: err.message || 'خطا در ساخت ModuleProduct',
+              errorMessage: failure.message,
+              lastMessage: failure.message,
+              operationErrors: { ...prev[productId]?.operationErrors, publish: failure },
+            },
+          }));
+        }
+      } else {
+        const packageGuid = currentState?.packageGuid;
+        if (!packageGuid) {
+          alert('ابتدا باید مرحله ساخت HelmChart یا ثبت Package با موفقیت انجام شود.');
+          return;
+        }
+
+        setProductActionStates((prev) => ({
+          ...prev,
+          [productId]: {
+            ...prev[productId],
+            productId,
+            productName,
+            branchGuid,
+            projectGuid,
+            step: 'adding_module',
+            lastMessage: 'در حال ایجاد ماژول محصول (AddModuleProduct)...',
+            errorMessage: null,
+            operationErrors: clearOperationError(
+              prev[productId]?.operationErrors,
+              'module'
+            ),
+          },
+        }));
+
+        try {
+          const response = await executeAddModuleProduct(
+            packageGuid,
+            { branchGuid, projectGuid, productGuid: productId },
+            serviceConfig
+          );
+
+          if (!response.isSuccessful) {
+            const failure = failureFromResponse('module', response);
+            setProductActionStates((prev) => ({
+              ...prev,
+              [productId]: {
+                ...prev[productId],
+                step: 'error',
+                errorMessage: failure.message,
+                lastMessage: failure.message,
+                operationErrors: {
+                  ...prev[productId]?.operationErrors,
+                  module: failure,
+                },
+                lastResponse: response,
+              },
+            }));
+            return;
+          }
+
+          setProductActionStates((prev) => ({
+            ...prev,
+            [productId]: {
+              ...prev[productId],
+              step: 'module_success',
+              moduleGuid: response.data,
+              lastMessage: response.message || 'ماژول محصول با موفقیت ایجاد شد.',
+              errorMessage: null,
+              operationErrors: clearOperationError(
+                prev[productId]?.operationErrors,
+                'module'
+              ),
+              lastResponse: response,
+            },
+          }));
+        } catch (error) {
+          const failure = failureFromException('module', error);
+          setProductActionStates((prev) => ({
+            ...prev,
+            [productId]: {
+              ...prev[productId],
+              step: 'error',
+              errorMessage: failure.message,
+              lastMessage: failure.message,
+              operationErrors: { ...prev[productId]?.operationErrors, module: failure },
             },
           }));
         }
