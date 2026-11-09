@@ -83,6 +83,7 @@ function openClusterCacheDb(): Promise<IDBDatabase | null> {
     };
     request.onsuccess = () => resolve(request.result);
     request.onerror = () => resolve(null);
+    request.onblocked = () => resolve(null);
   });
 }
 
@@ -155,6 +156,7 @@ export function loadProductActionStates(): Record<string, ProductActionState> {
     if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) return {};
     const restored = parsed as Record<string, ProductActionState>;
     for (const state of Object.values(restored)) {
+      if (!state || typeof state !== 'object') continue;
       const interrupted: Record<string, 'helm' | 'publish' | 'module'> = {
         building_helm: 'helm',
         publishing_package: 'publish',
