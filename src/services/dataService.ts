@@ -1,5 +1,6 @@
 import { API_CONFIG, ServiceConfig, STORAGE_KEY_CONFIG } from '../config/apiConfig';
 import { ClusterItem } from '../types/dataTypes';
+import { ProductActionState } from '../types/actionTypes';
 
 export interface DataFetchResult {
   data: ClusterItem[];
@@ -59,6 +60,80 @@ export interface StreamCallbacks {
 }
 
 let cachedRuntimeConfig: Partial<ServiceConfig> | null = null;
+
+const STORAGE_KEY_CLUSTER_CACHE = 'json_crack_cluster_tree_cache_v1';
+const STORAGE_KEY_PRODUCT_ACTIONS = 'json_crack_product_action_states_v1';
+
+function getClusterCacheKey(config: ServiceConfig): string {
+  return JSON.stringify({ source: config.defaultSource, serviceUrl: config.serviceUrl, mockDataUrl: config.mockDataUrl });
+}
+
+export function getCachedClusterResult(config: ServiceConfig): DataFetchResult | null {
+  try {
+    const raw = localStorage.getItem(STORAGE_KEY_CLUSTER_CACHE);
+    if (!raw) return null;
+    const cached = JSON.parse(raw);
+    if (cached?.key !== getClusterCacheKey(config) || !Array.isArray(cached?.result?.data)) return null;
+    return cached.result as DataFetchResult;
+  } catch (error) {
+    console.warn('Could not read cached cluster data', error);
+    return null;
+  }
+}
+
+export function saveCachedClusterResult(config: ServiceConfig, result: DataFetchResult): void {
+  try {
+    localStorage.setItem(STORAGE_KEY_CLUSTER_CACHE, JSON.stringify({
+      key: getClusterCacheKey(config),
+      savedAt: new Date().toISOString(),
+      result,
+    }));
+  } catch (error) {
+    console.warn('Could not cache cluster data', error);
+  }
+}
+
+export function loadProductActionStates(): Record<string, ProductActionState> {
+  try {
+    const raw = localStorage.getItem(STORAGE_KEY_PRODUCT_ACTIONS);
+    if (!raw) return {};
+    const parsed = JSON.parse(raw);
+    if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) return {};
+    const restored = parsed as Record<string, ProductActionState>;
+    for (const state of Object.values(restored)) {
+      const interrupted: Record<string, 'helm' | 'publish' | 'module'> = {
+        building_helm: 'helm',
+        publishing_package: 'publish',
+        adding_module: 'module',
+      };
+      const operation = interrupted[state.step];
+      if (operation) {
+        const message = 'اجرای عملیات پیش از دریافت پاسخ نهایی متوقف شده است؛ برای بررسی وضعیت، استعلام مجدد را اجرا کنید.';
+        state.step = 'error';
+        state.lastMessage = message;
+        state.errorMessage = message;
+        state.operationErrors = { ...state.operationErrors, [operation]: { operation, message } };
+        state.operationHistory = {
+          ...state.operationHistory,
+          [operation]: { status: 'interrupted', message, timestamp: new Date().toISOString() },
+        };
+      }
+    }
+    return restored;
+  } catch (error) {
+    console.warn('Could not restore product action history', error);
+    return {};
+  }
+}
+
+export function saveProductActionStates(states: Record<string, ProductActionState>): void {
+  try {
+    localStorage.setItem(STORAGE_KEY_PRODUCT_ACTIONS, JSON.stringify(states));
+  } catch (error) {
+    console.warn('Could not persist product action history', error);
+  }
+}
+
 
 /**
  * خواندن تنظیمات runtime از فایل public/config.json
