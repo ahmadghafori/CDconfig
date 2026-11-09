@@ -23,7 +23,6 @@ interface ServiceConfigModalProps {
   config: ServiceConfig;
   onSaveConfig: (newConfig: ServiceConfig) => void;
   onUploadCustomJson: (jsonData: any, fileName: string) => void;
-  onRefreshData: () => void;
 }
 
 export const ServiceConfigModal: React.FC<ServiceConfigModalProps> = ({
@@ -32,7 +31,6 @@ export const ServiceConfigModal: React.FC<ServiceConfigModalProps> = ({
   config,
   onSaveConfig,
   onUploadCustomJson,
-  onRefreshData,
 }) => {
   const [formData, setFormData] = useState<ServiceConfig>({ ...config });
   const [isTesting, setIsTesting] = useState<boolean>(false);
@@ -132,7 +130,6 @@ export const ServiceConfigModal: React.FC<ServiceConfigModalProps> = ({
 
   const handleSave = () => {
     onSaveConfig(formData);
-    onRefreshData();
     onClose();
   };
 
