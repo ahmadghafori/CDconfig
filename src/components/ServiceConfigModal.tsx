@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import {
   X,
   Globe,
@@ -42,6 +42,15 @@ export const ServiceConfigModal: React.FC<ServiceConfigModalProps> = ({
     duration?: number;
   } | null>(null);
   const [showCodeSnippet, setShowCodeSnippet] = useState<boolean>(true);
+
+  // The modal stays mounted while hidden; refresh its form from the latest
+  // persisted settings every time the user opens it.
+  useEffect(() => {
+    if (isOpen) {
+      setFormData({ ...config });
+      setTestResult(null);
+    }
+  }, [isOpen, config]);
 
   if (!isOpen) return null;
 
