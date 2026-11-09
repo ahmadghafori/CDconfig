@@ -788,6 +788,7 @@ function findJsonSearchMatch(data: any, query: string): JsonSearchMatch | null {
                 onSelectNode={setSelectedNode}
                 onToggleCollapse={handleToggleCollapse}
                 searchQuery={searchQuery}
+                focusNodeId={searchFocusNodeId}
                 productActionStates={productActionStates}
                 onExecuteAction={handleExecuteAction}
               />
