@@ -883,7 +883,6 @@ function findJsonSearchMatch(data: any, query: string): JsonSearchMatch | null {
         config={serviceConfig}
         onSaveConfig={handleSaveConfig}
         onUploadCustomJson={handleUploadCustomJson}
-        onRefreshData={() => loadData(undefined, true)}
       />
     </div>
   );
