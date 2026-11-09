@@ -128,7 +128,8 @@ function findJsonSearchMatch(data: any, query: string): JsonSearchMatch | null {
 
     try {
       const runtimeConfig = await loadRuntimeConfig();
-      const activeConf: ServiceConfig = { ...runtimeConfig, ...serviceConfig, ...(customConfig || {}) };
+      const activeConf: ServiceConfig = { ...runtimeConfig, ...(customConfig || {}) };
+      if (JSON.stringify(serviceConfig) !== JSON.stringify(activeConf)) setServiceConfig(activeConf);
       const targetUrl = activeConf.defaultSource === 'mock' ? activeConf.mockDataUrl : activeConf.serviceUrl;
 
       // Reuse the last successful tree on startup; explicit refresh bypasses this cache.
