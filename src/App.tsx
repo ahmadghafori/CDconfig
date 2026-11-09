@@ -1,6 +1,11 @@
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import {
   fetchClusterServiceStream,
+  loadRuntimeConfig,
+  getCachedClusterResult,
+  saveCachedClusterResult,
+  loadProductActionStates,
+  saveProductActionStates,
   getActiveServiceConfig,
   saveActiveServiceConfig,
   DataFetchResult,
@@ -84,7 +89,11 @@ function findJsonSearchMatch(data: any, query: string): JsonSearchMatch | null {
   const [expandDepth, setExpandDepth] = useState<number>(1);
   const [isServiceModalOpen, setIsServiceModalOpen] = useState<boolean>(false);
   const [loadingSeconds, setLoadingSeconds] = useState<number>(0);
-  const [productActionStates, setProductActionStates] = useState<Record<string, ProductActionState>>({});
+  const [productActionStates, setProductActionStates] = useState<Record<string, ProductActionState>>(loadProductActionStates);
+
+  useEffect(() => {
+    saveProductActionStates(productActionStates);
+  }, [productActionStates]);
 
   // Timer while loading to show progress during long queries
   useEffect(() => {
@@ -107,7 +116,7 @@ function findJsonSearchMatch(data: any, query: string): JsonSearchMatch | null {
   const abortControllerRef = React.useRef<AbortController | null>(null);
 
   // Load data from service/mock using real-time streaming
-  const loadData = useCallback(async (customConfig?: Partial<ServiceConfig>) => {
+  const loadData = useCallback(async (customConfig?: Partial<ServiceConfig>, forceRefresh = false) => {
     // Abort previous in-flight request if any
     if (abortControllerRef.current) {
       abortControllerRef.current.abort();
@@ -115,14 +124,25 @@ function findJsonSearchMatch(data: any, query: string): JsonSearchMatch | null {
     const controller = new AbortController();
     abortControllerRef.current = controller;
 
-    setIsLoading(true);
-    setIsStreaming(true);
     setError(null);
 
-    const activeConf = { ...serviceConfig, ...(customConfig || {}) };
-    const targetUrl = activeConf.defaultSource === 'mock' ? activeConf.mockDataUrl : activeConf.serviceUrl;
-
     try {
+      const runtimeConfig = await loadRuntimeConfig();
+      const activeConf: ServiceConfig = { ...runtimeConfig, ...serviceConfig, ...(customConfig || {}) };
+      const targetUrl = activeConf.defaultSource === 'mock' ? activeConf.mockDataUrl : activeConf.serviceUrl;
+
+      // Reuse the last successful tree on startup; explicit refresh bypasses this cache.
+      const cachedResult = forceRefresh ? null : getCachedClusterResult(activeConf);
+      if (cachedResult) {
+        setDataResult(cachedResult);
+        setIsLoading(false);
+        setIsStreaming(false);
+        setError(null);
+        return;
+      }
+
+      setIsLoading(true);
+      setIsStreaming(true);
       await fetchClusterServiceStream(
         {
           signal: controller.signal,
@@ -148,6 +168,7 @@ function findJsonSearchMatch(data: any, query: string): JsonSearchMatch | null {
             });
           },
           onComplete: (finalResult) => {
+            saveCachedClusterResult(activeConf, finalResult);
             setIsLoading(false);
             setIsStreaming(false);
             setDataResult(finalResult);
@@ -287,6 +308,7 @@ function findJsonSearchMatch(data: any, query: string): JsonSearchMatch | null {
   const handleSaveConfig = (newConfig: ServiceConfig) => {
     setServiceConfig(newConfig);
     saveActiveServiceConfig(newConfig);
+    void loadData(newConfig, true);
   };
 
   // When clicking on a cluster item in Topology view, jump to it or inspect it
@@ -641,7 +663,7 @@ function findJsonSearchMatch(data: any, query: string): JsonSearchMatch | null {
             : serviceConfig.mockDataUrl)
         }
         isLoading={isLoading}
-        onRefresh={() => loadData()}
+        onRefresh={() => loadData(undefined, true)}
         filterEmpty={filterEmpty}
         onToggleFilterEmpty={setFilterEmpty}
         searchQuery={searchQuery}
@@ -693,7 +715,7 @@ function findJsonSearchMatch(data: any, query: string): JsonSearchMatch | null {
                     };
                     setServiceConfig(newConf);
                     saveActiveServiceConfig(newConf);
-                    loadData(newConf);
+                    loadData(newConf, true);
                   }}
                   className="px-3.5 py-1.5 text-xs font-medium text-emerald-300 bg-emerald-950/70 border border-emerald-800/60 hover:bg-emerald-900/60 rounded-lg transition-colors flex items-center gap-1.5"
                 >
@@ -744,7 +766,7 @@ function findJsonSearchMatch(data: any, query: string): JsonSearchMatch | null {
                       };
                       setServiceConfig(newConf);
                       saveActiveServiceConfig(newConf);
-                      loadData(newConf);
+                      loadData(newConf, true);
                     }}
                     className="px-3.5 py-2 text-xs font-medium text-slate-300 hover:text-white bg-slate-800 hover:bg-slate-700 border border-slate-700/80 rounded-lg transition-colors flex items-center gap-1.5"
                   >
@@ -753,7 +775,7 @@ function findJsonSearchMatch(data: any, query: string): JsonSearchMatch | null {
                   </button>
                 )}
                 <button
-                  onClick={() => loadData()}
+                  onClick={() => loadData(undefined, true)}
                   className="px-3 py-2 text-xs font-medium text-slate-400 hover:text-slate-200 bg-slate-900 border border-slate-800 rounded-lg transition-colors flex items-center gap-1.5"
                 >
                   <RefreshCw className="w-3.5 h-3.5" />
@@ -834,7 +856,7 @@ function findJsonSearchMatch(data: any, query: string): JsonSearchMatch | null {
         config={serviceConfig}
         onSaveConfig={handleSaveConfig}
         onUploadCustomJson={handleUploadCustomJson}
-        onRefreshData={() => loadData(serviceConfig)}
+        onRefreshData={() => loadData(undefined, true)}
       />
     </div>
   );
