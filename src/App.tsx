@@ -247,6 +247,7 @@ export default function App() {
         operation,
         message: response.message || 'عملیات ناموفق بود.',
         statusCode: response.statusCode,
+        httpStatus: response.httpStatus,
         requestId: response.requestId,
         exception: response.exception,
         subStatuses: response.subStatuses,
