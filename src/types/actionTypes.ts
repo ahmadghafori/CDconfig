@@ -31,6 +31,7 @@ export interface OperationFailure {
   operation: ProductActionOperation;
   message: string;
   statusCode?: number;
+  httpStatus?: number;
   requestId?: string | null;
   exception?: any;
   subStatuses?: SubStatusItem[];
@@ -40,6 +41,7 @@ export interface OperationFailure {
 export interface ApiResponse<T = any> {
   data: T;
   statusCode: number;
+  httpStatus?: number;
   message?: string;
   mode?: number;
   actionType?: number;
