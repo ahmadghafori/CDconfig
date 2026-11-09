@@ -633,6 +633,14 @@ function renderProductPipeline(
                 <div className="text-[9px] text-slate-500 font-mono" dir="ltr">
                   {new Date(entry.timestamp).toLocaleString()}
                 </div>
+                {entry.response && (
+                  <details className="text-[10px] text-slate-400">
+                    <summary className="cursor-pointer hover:text-slate-200">جزئیات پاسخ همین عملیات</summary>
+                    <pre className="mt-1 p-2 rounded bg-slate-950 whitespace-pre-wrap break-words overflow-x-auto max-h-36">
+                      {JSON.stringify(entry.response, null, 2)}
+                    </pre>
+                  </details>
+                )}
               </div>
             );
           })}
