@@ -66,40 +66,38 @@ let cachedRuntimeConfig: Partial<ServiceConfig> | null = null;
  * بدون کامپایل مجدد، فایل config.json را بخواند.
  */
 export async function loadRuntimeConfig(): Promise<ServiceConfig> {
-  if (cachedRuntimeConfig) {
-    return { ...API_CONFIG, ...cachedRuntimeConfig };
-  }
-
-  let fileConfig: Partial<ServiceConfig> = {};
-  try {
-    const res = await fetch('/config.json', { cache: 'no-store' });
-    if (res.ok) {
-      fileConfig = await res.json();
-      cachedRuntimeConfig = fileConfig;
+  // Load the deployment config only once, but always re-read user overrides.
+  // localStorage is origin-scoped and survives page reloads, browser restarts,
+  // and new frontend builds as long as the application origin stays the same.
+  if (!cachedRuntimeConfig) {
+    try {
+      const res = await fetch('/config.json', { cache: 'no-store' });
+      if (res.ok) {
+        cachedRuntimeConfig = await res.json();
+      } else {
+        cachedRuntimeConfig = {};
+      }
+    } catch {
+      // Development mode or deployments without a public config.json.
+      cachedRuntimeConfig = {};
     }
-  } catch (e) {
-    // If not accessible (e.g. dev mode without server), fall back to defaults
   }
 
-  // Merge localStorage if user modified in UI
   let savedConfig: Partial<ServiceConfig> = {};
   try {
     const saved = localStorage.getItem(STORAGE_KEY_CONFIG);
     if (saved) {
-      savedConfig = JSON.parse(saved);
-      if (savedConfig.timeoutMs === 15000) {
-        savedConfig.timeoutMs = 0;
+      const parsed = JSON.parse(saved);
+      if (parsed && typeof parsed === 'object' && !Array.isArray(parsed)) {
+        savedConfig = parsed;
       }
+      if (savedConfig.timeoutMs === 15000) savedConfig.timeoutMs = 0;
     }
   } catch (e) {
     console.warn('Could not read saved service config from localStorage', e);
   }
 
-  return {
-    ...API_CONFIG,
-    ...fileConfig,
-    ...savedConfig,
-  };
+  return { ...API_CONFIG, ...(cachedRuntimeConfig || {}), ...savedConfig };
 }
 
 /**
@@ -131,9 +129,11 @@ export function getActiveServiceConfig(): ServiceConfig {
  */
 export function saveActiveServiceConfig(config: ServiceConfig): void {
   try {
+    // Persist every service endpoint and option together as one versionable JSON object.
     localStorage.setItem(STORAGE_KEY_CONFIG, JSON.stringify(config));
   } catch (e) {
     console.error('Failed to save service config', e);
+    throw new Error('ذخیره تنظیمات در این مرورگر ممکن نشد. فضای ذخیره‌سازی مرورگر را بررسی کنید.');
   }
 }
 
