@@ -25,6 +25,7 @@ interface GraphCanvasProps {
   onSelectNode: (node: GraphNode | null) => void;
   onToggleCollapse: (nodeIdOrPath: string) => void;
   searchQuery?: string;
+  focusNodeId?: string | null;
   onFitViewTrigger?: () => void;
   productActionStates?: Record<string, ProductActionState>;
   onExecuteAction?: (productId: string, actionType: 'helm' | 'publish' | 'module') => void;
@@ -37,6 +38,7 @@ export const GraphCanvas: React.FC<GraphCanvasProps> = ({
   onSelectNode,
   onToggleCollapse,
   searchQuery = '',
+  focusNodeId = null,
   productActionStates = {},
   onExecuteAction,
 }) => {
@@ -119,6 +121,34 @@ export const GraphCanvas: React.FC<GraphCanvasProps> = ({
       handleFitToScreen();
     }
   }, [nodes.length, handleFitToScreen]);
+
+  // Center and highlight a node selected through global search.
+  useEffect(() => {
+    if (!focusNodeId || !containerRef.current) return;
+    const target = nodes.find((node) => node.id === focusNodeId);
+    if (!target) return;
+
+    const { clientWidth, clientHeight } = containerRef.current;
+    const scale = Math.min(Math.max(transformRef.current.scale, 0.9), 1.2);
+    const centerX = target.x + target.width / 2;
+    const centerY = target.y + target.height / 2;
+    const x = clientWidth / 2 - centerX * scale;
+    const y = clientHeight / 2 - centerY * scale;
+
+    if (worldRef.current) {
+      worldRef.current.style.transition = 'transform 450ms cubic-bezier(0.22, 1, 0.36, 1)';
+    }
+    transformRef.current = { x, y, scale };
+    applyTransform(x, y, scale);
+    setScaleDisplay(scale);
+    setPanDisplay({ x, y });
+
+    const transitionTimer = window.setTimeout(() => {
+      if (worldRef.current) worldRef.current.style.transition = '';
+    }, 500);
+
+    return () => window.clearTimeout(transitionTimer);
+  }, [focusNodeId, nodes, applyTransform]);
 
   // Mouse wheel zoom with GPU direct transform
   const handleWheel = (e: React.WheelEvent) => {
