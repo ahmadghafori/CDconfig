@@ -602,6 +602,97 @@ function renderProductPipeline(
         </div>
       </div>
 
+      {/* Operation-specific error details */}
+      {actionState?.operationErrors &&
+        (Object.keys(actionState.operationErrors) as Array<'helm' | 'publish' | 'module'>)
+          .filter((operation) => !!actionState.operationErrors?.[operation])
+          .map((operation) => {
+            const failure = actionState.operationErrors?.[operation];
+            if (!failure) return null;
+            const operationLabels = {
+              helm: 'ساخت HelmChart',
+              publish: 'ثبت Package در Registry',
+              module: 'ساخت ModuleProduct',
+            };
+            return (
+              <div
+                key={operation}
+                className="p-3 rounded-lg border border-rose-700/60 bg-rose-950/30 space-y-2"
+              >
+                <div className="flex items-center gap-2 text-rose-300 text-xs font-semibold">
+                  <AlertTriangle className="w-4 h-4 shrink-0" />
+                  <span>خطا در {operationLabels[operation]}</span>
+                  {typeof failure.statusCode === 'number' && (
+                    <span className="mr-auto font-mono text-[10px] text-rose-200">
+                      HTTP {failure.statusCode}
+                    </span>
+                  )}
+                </div>
+                <p className="text-[11px] leading-relaxed text-rose-100 break-words">
+                  {failure.message}
+                </p>
+                {failure.requestId && (
+                  <div className="text-[10px] text-slate-400 font-mono break-all">
+                    Request ID: {failure.requestId}
+                  </div>
+                )}
+                {failure.subStatuses && failure.subStatuses.length > 0 && (
+                  <div className="space-y-1.5 border-t border-rose-900/60 pt-2">
+                    <div className="text-[10px] text-rose-200 font-semibold">
+                      جزئیات خطاهای برگشتی سرویس ({failure.subStatuses.length})
+                    </div>
+                    {failure.subStatuses.map((item, index) => (
+                      <div
+                        key={`${operation}-${index}`}
+                        className="rounded bg-slate-950/70 p-2 text-[10px] space-y-1"
+                      >
+                        <div className="flex flex-wrap gap-x-2 text-slate-400">
+                          {item.subject && <span>موضوع: {item.subject}</span>}
+                          <span>کد: {item.subStatusCode}</span>
+                          {item.subActionType !== undefined && (
+                            <span>نوع عملیات: {item.subActionType}</span>
+                          )}
+                        </div>
+                        {item.message && (
+                          <p className="text-rose-200 break-words">{item.message}</p>
+                        )}
+                        {item.exception && (
+                          <pre className="text-slate-400 whitespace-pre-wrap break-words overflow-x-auto">
+                            {typeof item.exception === 'string'
+                              ? item.exception
+                              : JSON.stringify(item.exception, null, 2)}
+                          </pre>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                )}
+                {failure.exception && (
+                  <details className="text-[10px] text-slate-400">
+                    <summary className="cursor-pointer hover:text-slate-200">
+                      مشاهده Exception
+                    </summary>
+                    <pre className="mt-1 p-2 rounded bg-slate-950 whitespace-pre-wrap break-words overflow-x-auto">
+                      {typeof failure.exception === 'string'
+                        ? failure.exception
+                        : JSON.stringify(failure.exception, null, 2)}
+                    </pre>
+                  </details>
+                )}
+                {failure.rawResponse && (
+                  <details className="text-[10px] text-slate-400">
+                    <summary className="cursor-pointer hover:text-slate-200">
+                      مشاهده متن خام پاسخ
+                    </summary>
+                    <pre className="mt-1 p-2 rounded bg-slate-950 whitespace-pre-wrap break-words overflow-x-auto">
+                      {failure.rawResponse}
+                    </pre>
+                  </details>
+                )}
+              </div>
+            );
+          })}
+
       {/* STEP 1: Build HelmChart */}
       <div
         className={`p-3 rounded-lg border transition-all ${
