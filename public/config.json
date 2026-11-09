@@ -1,0 +1,11 @@
+{
+  "serviceUrl": "https://api.yourcompany.com/api/clusters",
+  "token": "",
+  "httpMethod": "GET",
+  "defaultSource": "live",
+  "timeoutMs": 0,
+  "helmChartEndpoint": "https://api.yourcompany.com/api/HelmChart/Build",
+  "publishPackageEndpoint": "https://api.yourcompany.com/api/HelmChart/Publish",
+  "addModuleProductEndpoint": "https://api.yourcompany.com/api/Module/AddModuleProduct",
+  "description": "این فایل حتی پس از بیلد شدن پروژه (npm run build) بدون نیاز به کامپایل مجدد در پوشه dist/config.json قابل ویرایش است. آدرس‌های پایپ‌لاین HelmChart و ModuleProduct نیز در این فایل قابل تغییر هستند."
+}

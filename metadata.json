@@ -1,0 +1,6 @@
+{
+  "name": "JSON Diagram Visualizer",
+  "description": "Interactive JSON Crack-inspired diagram visualizer for microservice cluster configs with flexible live/mock service integration.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
