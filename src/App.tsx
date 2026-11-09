@@ -2373,7 +2373,6 @@ export default function App() {
         config={serviceConfig}
         onSaveConfig={handleSaveConfig}
         onUploadCustomJson={handleUploadCustomJson}
-        onRefreshData={() => loadData(serviceConfig)}
       />
     </div>
   );
