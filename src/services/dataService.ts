@@ -68,12 +68,51 @@ function getClusterCacheKey(config: ServiceConfig): string {
   return JSON.stringify({ source: config.defaultSource, serviceUrl: config.serviceUrl, mockDataUrl: config.mockDataUrl });
 }
 
-export function getCachedClusterResult(config: ServiceConfig): DataFetchResult | null {
+const CLUSTER_CACHE_DB = 'json_crack_runtime_cache';
+const CLUSTER_CACHE_STORE = 'entries';
+
+function openClusterCacheDb(): Promise<IDBDatabase | null> {
+  return new Promise((resolve) => {
+    if (typeof indexedDB === 'undefined') {
+      resolve(null);
+      return;
+    }
+    const request = indexedDB.open(CLUSTER_CACHE_DB, 1);
+    request.onupgradeneeded = () => {
+      const db = request.result;
+      if (!db.objectStoreNames.contains(CLUSTER_CACHE_STORE)) {
+        db.createObjectStore(CLUSTER_CACHE_STORE);
+      }
+    };
+    request.onsuccess = () => resolve(request.result);
+    request.onerror = () => resolve(null);
+  });
+}
+
+export async function getCachedClusterResult(config: ServiceConfig): Promise<DataFetchResult | null> {
+  const key = getClusterCacheKey(config);
+  const db = await openClusterCacheDb();
+  if (db) {
+    try {
+      const result = await new Promise<DataFetchResult | null>((resolve) => {
+        const request = db.transaction(CLUSTER_CACHE_STORE, 'readonly').objectStore(CLUSTER_CACHE_STORE).get(key);
+        request.onsuccess = () => resolve((request.result as DataFetchResult) || null);
+        request.onerror = () => resolve(null);
+      });
+      db.close();
+      if (result && Array.isArray(result.data)) return result;
+    } catch (error) {
+      db.close();
+      console.warn('Could not read IndexedDB cluster cache', error);
+    }
+  }
+
+  // Fallback for browsers where IndexedDB is unavailable.
   try {
     const raw = localStorage.getItem(STORAGE_KEY_CLUSTER_CACHE);
     if (!raw) return null;
     const cached = JSON.parse(raw);
-    if (cached?.key !== getClusterCacheKey(config) || !Array.isArray(cached?.result?.data)) return null;
+    if (cached?.key !== key || !Array.isArray(cached?.result?.data)) return null;
     return cached.result as DataFetchResult;
   } catch (error) {
     console.warn('Could not read cached cluster data', error);
@@ -81,13 +120,31 @@ export function getCachedClusterResult(config: ServiceConfig): DataFetchResult |
   }
 }
 
-export function saveCachedClusterResult(config: ServiceConfig, result: DataFetchResult): void {
+export async function saveCachedClusterResult(config: ServiceConfig, result: DataFetchResult): Promise<void> {
+  const key = getClusterCacheKey(config);
+  const db = await openClusterCacheDb();
+  if (db) {
+    try {
+      await new Promise<void>((resolve) => {
+        const transaction = db.transaction(CLUSTER_CACHE_STORE, 'readwrite');
+        transaction.objectStore(CLUSTER_CACHE_STORE).put(result, key);
+        transaction.oncomplete = () => resolve();
+        transaction.onerror = () => resolve();
+        transaction.onabort = () => resolve();
+      });
+      db.close();
+      return;
+    } catch (error) {
+      db.close();
+      console.warn('Could not write IndexedDB cluster cache', error);
+    }
+  }
+
   try {
-    localStorage.setItem(STORAGE_KEY_CLUSTER_CACHE, JSON.stringify({
-      key: getClusterCacheKey(config),
-      savedAt: new Date().toISOString(),
-      result,
-    }));
+    localStorage.setItem(
+      STORAGE_KEY_CLUSTER_CACHE,
+      JSON.stringify({ key, savedAt: new Date().toISOString(), result })
+    );
   } catch (error) {
     console.warn('Could not cache cluster data', error);
   }
