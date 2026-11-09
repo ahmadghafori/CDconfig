@@ -68,6 +68,7 @@ async function parseApiResponse<T>(res: Response): Promise<ApiResponse<T>> {
       typeof responseObject.statusCode === 'number'
         ? responseObject.statusCode
         : res.status,
+    httpStatus: res.status,
     message,
     subStatuses,
     rawResponse: parseError ? rawBody : responseObject.rawResponse,
