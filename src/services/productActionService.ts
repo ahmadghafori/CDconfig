@@ -7,7 +7,7 @@ import {
 } from '../types/actionTypes';
 
 /**
- * کمک به حل کردن آدرس کامل Endpoint (در صورت وارد کردن مسیر نسبی یا کامل)
+ * Resolve a complete endpoint URL from either an absolute or relative endpoint.
  */
 function resolveEndpointUrl(baseUrl: string, endpoint: string): string {
   if (endpoint.startsWith('http://') || endpoint.startsWith('https://')) {
@@ -16,122 +16,133 @@ function resolveEndpointUrl(baseUrl: string, endpoint: string): string {
   try {
     const parsedBase = new URL(baseUrl);
     return new URL(endpoint, parsedBase.origin).toString();
-  } catch (e) {
+  } catch {
     return endpoint;
   }
 }
 
 /**
- * ۱) فراخوانی سرویس ساخت HelmChart (متد POST با InstallModuleCommand)
+ * Read the response body exactly once and normalize HTTP + business-level errors.
+ * A 2xx response is not considered successful unless the API explicitly returns
+ * isSuccessful: true.
+ */
+async function parseApiResponse<T>(res: Response): Promise<ApiResponse<T>> {
+  const rawBody = await res.text();
+  let body: any = null;
+  let parseError: string | null = null;
+
+  if (rawBody.trim()) {
+    try {
+      body = JSON.parse(rawBody);
+    } catch {
+      parseError = 'پاسخ سرویس JSON معتبر نیست.';
+    }
+  } else {
+    parseError = 'سرویس پاسخ خالی برگرداند.';
+  }
+
+  const responseObject =
+    body && typeof body === 'object' && !Array.isArray(body) ? body : {};
+  const subStatuses = Array.isArray(responseObject.subStatuses)
+    ? responseObject.subStatuses
+    : undefined;
+  const subStatusMessages = (subStatuses || [])
+    .map((item: any) => item?.message)
+    .filter((message: unknown): message is string =>
+      typeof message === 'string' && message.trim().length > 0
+    );
+
+  const fallbackMessage = !res.ok
+    ? `خطای HTTP ${res.status}${res.statusText ? ` (${res.statusText})` : ''}`
+    : parseError || 'سرویس عملیات را با موفقیت تأیید نکرد.';
+
+  const message =
+    (typeof responseObject.message === 'string' && responseObject.message.trim()) ||
+    subStatusMessages.join(' | ') ||
+    fallbackMessage;
+
+  return {
+    ...responseObject,
+    data: responseObject.data ?? null,
+    statusCode:
+      typeof responseObject.statusCode === 'number'
+        ? responseObject.statusCode
+        : res.status,
+    message,
+    subStatuses,
+    rawResponse: parseError ? rawBody : responseObject.rawResponse,
+    isSuccessful: res.ok && responseObject.isSuccessful === true,
+  } as ApiResponse<T>;
+}
+
+/**
+ * Shared POST helper. Network errors are deliberately allowed to propagate;
+ * they must never be converted into a fabricated successful response.
+ */
+async function postJson<T>(
+  url: string,
+  headers: Record<string, string>,
+  payload: unknown
+): Promise<ApiResponse<T>> {
+  const res = await fetch(url, {
+    method: 'POST',
+    headers,
+    body: JSON.stringify(payload),
+  });
+  return parseApiResponse<T>(res);
+}
+
+function createHeaders(
+  config: ServiceConfig,
+  extra: Record<string, string> = {}
+): Record<string, string> {
+  const headers: Record<string, string> = {
+    'Content-Type': 'application/json',
+    Accept: 'application/json',
+    ...extra,
+  };
+
+  if (config.token?.trim()) {
+    const token = config.token.trim();
+    headers.Authorization = token.startsWith('Bearer ') ? token : `Bearer ${token}`;
+  }
+
+  return headers;
+}
+
+/**
+ * 1) Build HelmChart.
  */
 export async function executeBuildHelmChart(
   command: InstallModuleCommand,
   config: ServiceConfig
 ): Promise<ApiResponse<HelmChartBuildData>> {
   const targetUrl = resolveEndpointUrl(config.serviceUrl, config.helmChartEndpoint);
-
-  const headers: Record<string, string> = {
-    'Content-Type': 'application/json',
-    Accept: 'application/json',
+  const headers = createHeaders(config, {
     'resource-type': 'PROJECT',
     'resource-ref-id': command.projectGuid,
     'branch-id': command.branchGuid,
-  };
+  });
 
-  if (config.token && config.token.trim()) {
-    const cleanToken = config.token.trim();
-    headers['Authorization'] = cleanToken.startsWith('Bearer ')
-      ? cleanToken
-      : `Bearer ${cleanToken}`;
-  }
-
-  const payload = {
+  return postJson<HelmChartBuildData>(targetUrl, headers, {
     branchGuid: command.branchGuid,
     projectGuid: command.projectGuid,
     productGuid: command.productGuid,
-  };
-
-  try {
-    const res = await fetch(targetUrl, {
-      method: 'POST',
-      headers,
-      body: JSON.stringify(payload),
-    });
-
-    if (!res.ok) {
-      let errBody: any = null;
-      try {
-        errBody = await res.json();
-      } catch (e) {
-        // ignore
-      }
-      const message =
-        errBody?.message ||
-        errBody?.subStatuses?.[0]?.message ||
-        `خطا در فراخوانی سرویس با کد وضعیت ${res.status} (${res.statusText})`;
-      return {
-        data: errBody?.data || null,
-        statusCode: res.status,
-        message,
-        subStatuses: errBody?.subStatuses,
-        isSuccessful: false,
-      };
-    }
-
-    const jsonResponse: ApiResponse<HelmChartBuildData> = await res.json();
-    return jsonResponse;
-  } catch (err: any) {
-    // اگر در حالت فایل ماک یا خطای CORS است، پاسخ شبیه‌سازی شده برای تست کاربر ایجاد کن
-    if (config.defaultSource === 'mock' || err.message?.includes('Failed to fetch')) {
-      console.warn('Network error or Mock mode active. Generating test response for Build HelmChart:', err);
-      // ایجاد یک پکیج گاید تستی
-      const mockGuid = 'b309e8f2-19dc-f111-8311-0050569978c0';
-      return {
-        data: {
-          version: '0.0.0',
-          packageGuid_SC: mockGuid,
-          packageName: `Product-${command.productGuid.slice(0, 8)}`,
-          solutionName: 'Solution',
-          product: command.productGuid,
-        },
-        statusCode: 200,
-        message: 'عملیات ساخت HelmChart انجام شد (پاسخ تستی سرور / ماک)',
-        isSuccessful: true,
-        subStatuses: [
-          {
-            subStatusCode: 2,
-            message: 'عملیات با موفقیت انجام شد',
-            subActionType: 10,
-          },
-        ],
-      };
-    }
-    throw err;
-  }
+  });
 }
 
 /**
- * ۲) تلاش دوباره برای ثبت Package در صورت پیدا نشدن در Helm registry
+ * 2) Retry publishing the package to the Helm registry.
  */
 export async function executeRetryPublishPackage(
   params: HelmChartPublishingResults,
   config: ServiceConfig
 ): Promise<ApiResponse<string>> {
   const targetUrl = resolveEndpointUrl(config.serviceUrl, config.publishPackageEndpoint);
-
-  const headers: Record<string, string> = {
-    'Content-Type': 'application/json',
-    Accept: 'application/json',
+  const headers = createHeaders(config, {
     'resource-type': 'PROJECT',
     ...(params.product ? { 'resource-ref-id': params.product } : {}),
-  };
-
-  if (config.token && config.token.trim()) {
-    const cleanToken = config.token.trim();
-    headers['Authorization'] = cleanToken.startsWith('Bearer ')
-      ? cleanToken
-      : `Bearer ${cleanToken}`;
-  }
+  });
 
   const payload: HelmChartPublishingResults = {
     version: params.version || '0.0.0',
@@ -141,68 +152,20 @@ export async function executeRetryPublishPackage(
     product: params.product,
   };
 
-  try {
-    const res = await fetch(targetUrl, {
-      method: 'POST',
-      headers,
-      body: JSON.stringify(payload),
-    });
-
-    if (!res.ok) {
-      let errBody: any = null;
-      try {
-        errBody = await res.json();
-      } catch (e) {
-        // ignore
-      }
-      return {
-        data: errBody?.data || '',
-        statusCode: res.status,
-        message:
-          errBody?.message ||
-          errBody?.subStatuses?.[0]?.message ||
-          `خطای وضعیت ${res.status}`,
-        subStatuses: errBody?.subStatuses,
-        isSuccessful: false,
-      };
-    }
-
-    const jsonResponse: ApiResponse<string> = await res.json();
-    return jsonResponse;
-  } catch (err: any) {
-    if (config.defaultSource === 'mock' || err.message?.includes('Failed to fetch')) {
-      console.warn('Network error or Mock mode active. Generating test response for Retry Publish Package:', err);
-      return {
-        data: params.packageGuid_SC || 'b309e8f2-19dc-f111-8311-0050569978c0',
-        statusCode: 200,
-        message: 'ثبت Package در رجیستری هلم با موفقیت انجام شد (پاسخ تستی)',
-        isSuccessful: true,
-        subStatuses: [
-          {
-            subStatusCode: 2,
-            message: 'عملیات با موفقیت انجام شد',
-            subActionType: 10,
-          },
-        ],
-      };
-    }
-    throw err;
-  }
+  return postJson<string>(targetUrl, headers, payload);
 }
 
 /**
- * ۳) ساخت ماژول محصول (AddModuleProduct/{PackageGuid})
- * این مرحله تا زمانی که PackageGuid_SC دریافت نشود قفل است.
+ * 3) Create ModuleProduct using AddModuleProduct/{PackageGuid}.
  */
 export async function executeAddModuleProduct(
   packageGuid: string,
   command: InstallModuleCommand,
   config: ServiceConfig
 ): Promise<ApiResponse<string>> {
-  let baseEndpoint = resolveEndpointUrl(config.serviceUrl, config.addModuleProductEndpoint);
-
-  // فرمت‌بندی آدرس بر اساس الگوی AddModuleProduct/{PackageGuid}
+  const baseEndpoint = resolveEndpointUrl(config.serviceUrl, config.addModuleProductEndpoint);
   let targetUrl: string;
+
   if (baseEndpoint.includes('{PackageGuid}')) {
     targetUrl = baseEndpoint.replace('{PackageGuid}', packageGuid);
   } else if (baseEndpoint.endsWith('/')) {
@@ -211,86 +174,36 @@ export async function executeAddModuleProduct(
     targetUrl = `${baseEndpoint}/${packageGuid}`;
   }
 
-  const headers: Record<string, string> = {
-    'Content-Type': 'application/json',
-    Accept: 'application/json',
+  const headers = createHeaders(config, {
     'resource-type': 'PROJECT',
     'resource-ref-id': command.projectGuid,
     'branch-id': command.branchGuid,
-  };
+  });
 
-  if (config.token && config.token.trim()) {
-    const cleanToken = config.token.trim();
-    headers['Authorization'] = cleanToken.startsWith('Bearer ')
-      ? cleanToken
-      : `Bearer ${cleanToken}`;
-  }
-
-  const payload = {
+  return postJson<string>(targetUrl, headers, {
     branchGuid: command.branchGuid,
     projectGuid: command.projectGuid,
     productGuid: command.productGuid,
-  };
-
-  try {
-    const res = await fetch(targetUrl, {
-      method: 'POST',
-      headers,
-      body: JSON.stringify(payload),
-    });
-
-    if (!res.ok) {
-      let errBody: any = null;
-      try {
-        errBody = await res.json();
-      } catch (e) {
-        // ignore
-      }
-      return {
-        data: errBody?.data || '',
-        statusCode: res.status,
-        message:
-          errBody?.message ||
-          errBody?.subStatuses?.[0]?.message ||
-          `خطای سرور در ساخت ماژول محصول (${res.status})`,
-        subStatuses: errBody?.subStatuses,
-        isSuccessful: false,
-      };
-    }
-
-    const jsonResponse: ApiResponse<string> = await res.json();
-    return jsonResponse;
-  } catch (err: any) {
-    if (config.defaultSource === 'mock' || err.message?.includes('Failed to fetch')) {
-      console.warn('Network error or Mock mode active. Generating test response for AddModuleProduct:', err);
-      const mockResultGuid = '12345678-abcd-ef01-2345-6789abcdef01';
-      return {
-        data: mockResultGuid,
-        statusCode: 200,
-        message: 'ماژول محصول (ModuleProduct) با موفقیت ساخته شد (پاسخ تستی)',
-        isSuccessful: true,
-        subStatuses: [
-          {
-            subStatusCode: 2,
-            message: 'عملیات با موفقیت انجام شد',
-            subActionType: 10,
-          },
-        ],
-      };
-    }
-    throw err;
-  }
+  });
 }
 
 /**
- * بررسی اینکه آیا متن خطا یا هشدار مربوط به عدم یافتن پکیج در Helm Registry است یا خیر
+ * Detect the special case where the package was built but is not yet available
+ * in the Helm registry. Exception objects are included in the text scan.
  */
 export function checkIsRegistryNotFoundError(response: ApiResponse<any>): boolean {
   if (!response) return false;
-  const messagesToCheck: string[] = [
+  const exceptionText =
+    typeof response.exception === 'string'
+      ? response.exception
+      : response.exception
+      ? JSON.stringify(response.exception)
+      : '';
+
+  const messagesToCheck = [
     response.message || '',
-    ...(response.subStatuses?.map((s) => s.message || '') || []),
-    typeof response.exception === 'string' ? response.exception : '',
+    ...(response.subStatuses?.map((item) => item.message || '') || []),
+    exceptionText,
   ];
 
   const fullText = messagesToCheck.join(' ').toLowerCase();
