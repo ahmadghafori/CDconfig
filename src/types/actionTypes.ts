@@ -76,6 +76,13 @@ export type ProductActionStep =
   | 'module_success'
   | 'error';
 
+export interface ProductOperationHistoryEntry {
+  status: 'success' | 'error' | 'interrupted';
+  message: string;
+  timestamp: string;
+  response?: ApiResponse<any> | null;
+}
+
 export interface ProductActionState {
   productId: string;
   productName: string;
@@ -90,5 +97,6 @@ export interface ProductActionState {
   requiresPublishRetry?: boolean;
   lastResponse?: any;
   operationErrors?: Partial<Record<ProductActionOperation, OperationFailure>>;
+  operationHistory?: Partial<Record<ProductActionOperation, ProductOperationHistoryEntry>>;
   timestamp?: string;
 }
