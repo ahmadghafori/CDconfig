@@ -7,186 +7,177 @@ import {
 } from '../types/actionTypes';
 
 /**
- * Resolve a complete endpoint URL from either an absolute or relative endpoint.
+ * ارسال Mutationهای پایپ‌لاین محصول از طریق GraphQL.
+ * هدرهای Context پروژه و توکن در تمام درخواست‌ها ارسال می‌شوند.
  */
-function resolveEndpointUrl(baseUrl: string, endpoint: string): string {
-  if (endpoint.startsWith('http://') || endpoint.startsWith('https://')) {
-    return endpoint;
-  }
-  try {
-    const parsedBase = new URL(baseUrl);
-    return new URL(endpoint, parsedBase.origin).toString();
-  } catch {
-    return endpoint;
-  }
-}
-
-/**
- * Read the response body exactly once and normalize HTTP + business-level errors.
- * A 2xx response is not considered successful unless the API explicitly returns
- * isSuccessful: true.
- */
-async function parseApiResponse<T>(res: Response): Promise<ApiResponse<T>> {
-  const rawBody = await res.text();
-  let body: any = null;
-  let parseError: string | null = null;
-
-  if (rawBody.trim()) {
-    try {
-      body = JSON.parse(rawBody);
-    } catch {
-      parseError = 'پاسخ سرویس JSON معتبر نیست.';
-    }
-  } else {
-    parseError = 'سرویس پاسخ خالی برگرداند.';
-  }
-
-  const responseObject =
-    body && typeof body === 'object' && !Array.isArray(body) ? body : {};
-  const subStatuses = Array.isArray(responseObject.subStatuses)
-    ? responseObject.subStatuses
-    : undefined;
-  const subStatusMessages = (subStatuses || [])
-    .map((item: any) => item?.message)
-    .filter((message: unknown): message is string =>
-      typeof message === 'string' && message.trim().length > 0
-    );
-
-  const fallbackMessage = !res.ok
-    ? `خطای HTTP ${res.status}${res.statusText ? ` (${res.statusText})` : ''}`
-    : parseError || 'سرویس عملیات را با موفقیت تأیید نکرد.';
-
-  const message =
-    (typeof responseObject.message === 'string' && responseObject.message.trim()) ||
-    subStatusMessages.join(' | ') ||
-    fallbackMessage;
-
-  return {
-    ...responseObject,
-    data: responseObject.data ?? null,
-    statusCode:
-      typeof responseObject.statusCode === 'number'
-        ? responseObject.statusCode
-        : res.status,
-    httpStatus: res.status,
-    message,
-    subStatuses,
-    rawResponse: parseError ? rawBody : responseObject.rawResponse,
-    isSuccessful: res.ok && responseObject.isSuccessful === true,
-  } as ApiResponse<T>;
-}
-
-/**
- * Shared POST helper. Network errors are deliberately allowed to propagate;
- * they must never be converted into a fabricated successful response.
- */
-async function postJson<T>(
-  url: string,
-  headers: Record<string, string>,
-  payload: unknown
-): Promise<ApiResponse<T>> {
-  const res = await fetch(url, {
-    method: 'POST',
-    headers,
-    body: JSON.stringify(payload),
-  });
-  return parseApiResponse<T>(res);
-}
-
-function createHeaders(
+async function postGraphqlMutation<T>(
   config: ServiceConfig,
-  extra: Record<string, string> = {}
-): Record<string, string> {
+  operationName: string,
+  query: string,
+  input: unknown
+): Promise<ApiResponse<T>> {
   const headers: Record<string, string> = {
     'Content-Type': 'application/json',
     Accept: 'application/json',
-    ...extra,
+    'resource-type': 'PROJECT',
   };
+
+  if (operationName === 'GenerateHemlChart' || operationName === 'AddProductHelmChart' || operationName === 'AddModuleProduct') {
+    // هدرهای project/branch از ورودی‌های همان عملیات استخراج می‌شوند.
+    const context = input as { projectGuid?: string; branchGuid?: string };
+    if (context.projectGuid) headers['resource-ref-id'] = context.projectGuid;
+    if (context.branchGuid) headers['branch-id'] = context.branchGuid;
+  }
 
   if (config.token?.trim()) {
     const token = config.token.trim();
     headers.Authorization = token.startsWith('Bearer ') ? token : `Bearer ${token}`;
   }
 
-  return headers;
+  const response = await fetch(config.clusterGraphqlEndpoint, {
+    method: 'POST',
+    headers,
+    cache: 'no-store',
+    body: JSON.stringify({
+      query,
+      variables: { input },
+      operationName,
+    }),
+  });
+
+  const rawBody = await response.text();
+  let envelope: any;
+  try {
+    envelope = JSON.parse(rawBody);
+  } catch {
+    return {
+      data: null as T,
+      statusCode: response.status,
+      httpStatus: response.status,
+      message: rawBody.trim() ? 'پاسخ GraphQL معتبر نیست.' : 'سرویس GraphQL پاسخ خالی برگرداند.',
+      rawResponse: rawBody,
+      isSuccessful: false,
+    };
+  }
+
+  if (Array.isArray(envelope?.errors) && envelope.errors.length > 0) {
+    const message = envelope.errors.map((error: any) => error?.message).filter(Boolean).join(' | ');
+    return {
+      data: null as T,
+      statusCode: response.status,
+      httpStatus: response.status,
+      message: message || 'خطای GraphQL رخ داد.',
+      exception: envelope.errors,
+      rawResponse: rawBody,
+      isSuccessful: false,
+    };
+  }
+
+  const result = envelope?.data?.[operationName];
+  if (!response.ok || !result || typeof result !== 'object') {
+    return {
+      data: null as T,
+      statusCode: response.status,
+      httpStatus: response.status,
+      message: result?.message || `خطای HTTP ${response.status}`,
+      rawResponse: rawBody,
+      isSuccessful: false,
+    };
+  }
+
+  const subStatuses = Array.isArray(result.subStatuses) ? result.subStatuses : undefined;
+  const subMessages = (subStatuses || [])
+    .map((item: any) => item?.message)
+    .filter((message: unknown): message is string => typeof message === 'string' && message.trim().length > 0);
+
+  const isSuccessful =
+    result.isSuccessful === true ||
+    (result.isSuccessful == null &&
+      typeof result.statusCode === 'number' &&
+      result.statusCode >= 200 &&
+      result.statusCode < 300 &&
+      result.data !== null &&
+      result.data !== undefined);
+
+  return {
+    ...result,
+    data: result.data ?? null,
+    statusCode: typeof result.statusCode === 'number' ? result.statusCode : response.status,
+    httpStatus: response.status,
+    message: result.message || subMessages.join(' | ') || (isSuccessful ? 'عملیات با موفقیت انجام شد.' : 'سرور موفقیت عملیات را تأیید نکرد.'),
+    subStatuses,
+    isSuccessful,
+  } as ApiResponse<T>;
 }
 
+const GENERATE_HELM_CHART_MUTATION = `mutation GenerateHemlChart($input: InstallModuleCommandInput!) {
+  GenerateHemlChart(input: $input) {
+    statusCode message requestId isSuccessful
+    data { version packageGuid_SC packageName solutionName product }
+    subStatuses { subject subStatusCode message subActionType }
+  }
+}`;
+
+const ADD_PRODUCT_HELM_CHART_MUTATION = `mutation AddProductHelmChart($input: HelmChartPublishingResultsInput!) {
+  AddProductHelmChart(input: $input) {
+    statusCode message requestId isSuccessful data
+    subStatuses { subject subStatusCode message subActionType }
+  }
+}`;
+
+const ADD_MODULE_PRODUCT_MUTATION = `mutation AddModuleProduct($input: InstallModuleProductCommandInput!) {
+  AddModuleProduct(input: $input) {
+    statusCode message requestId isSuccessful data
+    subStatuses { subject subStatusCode message subActionType }
+  }
+}`;
+
 /**
- * 1) Build HelmChart.
+ * 1) ساخت HelmChart از طریق GraphQL.
  */
 export async function executeBuildHelmChart(
   command: InstallModuleCommand,
   config: ServiceConfig
 ): Promise<ApiResponse<HelmChartBuildData>> {
-  const targetUrl = resolveEndpointUrl(config.serviceUrl, config.helmChartEndpoint);
-  const headers = createHeaders(config, {
-    'resource-type': 'PROJECT',
-    'resource-ref-id': command.projectGuid,
-    'branch-id': command.branchGuid,
-  });
-
-  return postJson<HelmChartBuildData>(targetUrl, headers, {
-    branchGuid: command.branchGuid,
-    projectGuid: command.projectGuid,
-    productGuid: command.productGuid,
-  });
+  return postGraphqlMutation<HelmChartBuildData>(
+    config,
+    'GenerateHemlChart',
+    GENERATE_HELM_CHART_MUTATION,
+    command
+  );
 }
 
 /**
- * 2) Retry publishing the package to the Helm registry.
+ * 2) ثبت Package در Helm Registry از طریق GraphQL.
  */
 export async function executeRetryPublishPackage(
   params: HelmChartPublishingResults,
   config: ServiceConfig
 ): Promise<ApiResponse<string>> {
-  const targetUrl = resolveEndpointUrl(config.serviceUrl, config.publishPackageEndpoint);
-  const headers = createHeaders(config, {
-    'resource-type': 'PROJECT',
-    'resource-ref-id': params.projectGuid,
-    'branch-id': params.branchGuid,
-  });
-
-  const payload: Omit<HelmChartPublishingResults, 'projectGuid' | 'branchGuid'> = {
-    version: params.version || '0.0.0',
-    packageGuid_SC: params.packageGuid_SC,
-    packageName: params.packageName,
-    solutionName: params.solutionName,
-    product: params.product,
-  };
-
-  return postJson<string>(targetUrl, headers, payload);
+  const { projectGuid: _projectGuid, branchGuid: _branchGuid, ...input } = params;
+  return postGraphqlMutation<string>(
+    config,
+    'AddProductHelmChart',
+    ADD_PRODUCT_HELM_CHART_MUTATION,
+    input
+  );
 }
 
 /**
- * 3) Create ModuleProduct using AddModuleProduct/{PackageGuid}.
+ * 3) ساخت ModuleProduct از طریق GraphQL؛ PackageGuid داخل input ارسال می‌شود، نه URL.
  */
 export async function executeAddModuleProduct(
   packageGuid: string,
   command: InstallModuleCommand,
   config: ServiceConfig
 ): Promise<ApiResponse<string>> {
-  const baseEndpoint = resolveEndpointUrl(config.serviceUrl, config.addModuleProductEndpoint);
-  let targetUrl: string;
-
-  if (baseEndpoint.includes('{PackageGuid}')) {
-    targetUrl = baseEndpoint.replace('{PackageGuid}', packageGuid);
-  } else if (baseEndpoint.endsWith('/')) {
-    targetUrl = `${baseEndpoint}${packageGuid}`;
-  } else {
-    targetUrl = `${baseEndpoint}/${packageGuid}`;
-  }
-
-  const headers = createHeaders(config, {
-    'resource-type': 'PROJECT',
-    'resource-ref-id': command.projectGuid,
-    'branch-id': command.branchGuid,
-  });
-
-  return postJson<string>(targetUrl, headers, {
-    branchGuid: command.branchGuid,
-    projectGuid: command.projectGuid,
-    productGuid: command.productGuid,
-  });
+  const input = { ...command, packageGuid };
+  return postGraphqlMutation<string>(
+    config,
+    'AddModuleProduct',
+    ADD_MODULE_PRODUCT_MUTATION,
+    input
+  );
 }
 
 /**
