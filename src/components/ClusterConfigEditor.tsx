@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { AlertTriangle, CheckCircle2, Loader2, Plus, RefreshCw, Save, Trash2 } from 'lucide-react';
+import { AlertTriangle, CheckCircle2, Loader2, Plus, RefreshCw, Save, Trash2, X } from 'lucide-react';
 import { ClusterGetResult } from '../types/dataTypes';
 
 type Realm = { guid: string; name: string; englishName?: string; isArchived?: boolean };
@@ -20,7 +20,7 @@ const UPDATE_MUTATION = `mutation cluster_UpdateClusterConfig($input: UpdateConf
 const field = 'w-full rounded-lg border border-slate-700 bg-slate-950 px-3 py-2 text-xs text-slate-100 focus:border-emerald-500 focus:outline-none';
 const label = 'mb-1 block text-[11px] text-slate-400';
 
-export const ClusterConfigEditor: React.FC<{ cluster: ClusterGetResult; endpoint: string; onSaved: () => void }> = ({ cluster, endpoint, onSaved }) => {
+export const ClusterConfigEditor: React.FC<{ cluster: ClusterGetResult; endpoint: string; onClose: () => void; onSaved: () => void }> = ({ cluster, endpoint, onClose, onSaved }) => {
   const config = cluster.clusterConfig || ({} as any);
   const argo: any = config.argoCD || {};
   const template = argo.applicationTemplate || {};
@@ -64,7 +64,8 @@ export const ClusterConfigEditor: React.FC<{ cluster: ClusterGetResult; endpoint
     if (!cluster.guid) return setNotice({ ok: false, text: 'clusterGuid موجود نیست.' });
     setSaving(true); setNotice(null);
     const input = {
-      clusterGuid: cluster.guid, clusterType,
+      clusterGuid: cluster.guid,
+      clusterType: (['Ingress', 'HTTPRoute', 'OpenShift'][clusterType] || 'Ingress'),
       exposure,
       clouds: clouds.map(c => ({ isActive: c.isActive, provider: c.provider, nsPrefix: c.nsPrefix || null })),
       kubernetes: { domainZone: domainZone.trim() || null },
@@ -93,7 +94,7 @@ export const ClusterConfigEditor: React.FC<{ cluster: ClusterGetResult; endpoint
 
   const realmsForPrefix = realms.filter(r => !r.isArchived);
   return <section className="space-y-3 rounded-xl border border-emerald-800/50 bg-slate-950/70 p-3">
-    <div className="flex items-center justify-between gap-2"><div><h3 className="text-sm font-semibold text-emerald-300">ویرایش Cluster Config</h3><p className="mt-1 break-all font-mono text-[10px] text-slate-500">clusterGuid: {cluster.guid}</p></div><button type="button" onClick={refreshRealms} disabled={loadingRealms} className="flex items-center gap-1 rounded-lg border border-slate-700 px-2 py-1.5 text-[10px] text-slate-300 disabled:opacity-50"><RefreshCw className={`h-3 w-3 ${loadingRealms ? 'animate-spin' : ''}`} /> Refresh Realm</button></div>
+    <div className="flex items-center justify-between gap-2"><div><h3 className="text-sm font-semibold text-emerald-300">ویرایش Cluster Config</h3><p className="mt-1 break-all font-mono text-[10px] text-slate-500">clusterGuid: {cluster.guid}</p></div><div className="flex items-center gap-1"><button type="button" onClick={onClose} className="rounded-lg border border-slate-700 p-1.5 text-slate-400 hover:bg-slate-800 hover:text-white" title="بازگشت به کارت‌ها"><X className="h-3.5 w-3.5" /></button><button type="button" onClick={refreshRealms} disabled={loadingRealms} className="flex items-center gap-1 rounded-lg border border-slate-700 px-2 py-1.5 text-[10px] text-slate-300 disabled:opacity-50"><RefreshCw className={`h-3 w-3 ${loadingRealms ? 'animate-spin' : ''}`} /> Refresh Realm</button></div></div>
     <div><label className={label}>Cluster Type</label><select className={field} value={clusterType} onChange={e => setClusterType(Number(e.target.value))}><option value={0}>Ingress</option><option value={1}>HTTPRoute</option><option value={2}>OpenShift</option></select></div>
     <div className="space-y-2 rounded-lg border border-slate-800 p-3"><h4 className="text-xs font-semibold text-slate-300">Exposure</h4>{clusterType === 0 && <div><label className={label}>Ingress Class Name</label><input className={field} value={exposure.ingressClassName} onChange={e => setExposure(v => ({ ...v, ingressClassName: e.target.value }))} /></div>}{clusterType === 1 && <><div><label className={label}>Gateway Name</label><input className={field} value={exposure.gatewayName} onChange={e => setExposure(v => ({ ...v, gatewayName: e.target.value }))} /></div><div><label className={label}>Gateway Namespace</label><input className={field} value={exposure.gatewayNamespace} onChange={e => setExposure(v => ({ ...v, gatewayNamespace: e.target.value }))} /></div><div><label className={label}>Gateway Section Name</label><input className={field} value={exposure.gatewaySectionName} onChange={e => setExposure(v => ({ ...v, gatewaySectionName: e.target.value }))} /></div></>}</div>
     <div><label className={label}>Kubernetes Domain Zone</label><input className={field} dir="ltr" value={domainZone} onChange={e => setDomainZone(e.target.value)} placeholder="example.com" /></div>

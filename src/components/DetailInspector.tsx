@@ -46,6 +46,7 @@ export const DetailInspector: React.FC<DetailInspectorProps> = ({
   onClusterConfigSaved,
 }) => {
   const [copiedKey, setCopiedKey] = useState<string | null>(null);
+  const [showClusterEditor, setShowClusterEditor] = useState(false);
   const [activeTab, setActiveTab] = useState<'details' | 'pipeline' | 'json'>(
     node?.isActionNode ? 'pipeline' : 'details'
   );
@@ -187,14 +188,16 @@ export const DetailInspector: React.FC<DetailInspectorProps> = ({
             )}
 
             {/* Special Cluster Info Card if applicable */}
-            {clusterGetResult && (
+            {showClusterEditor && clusterGetResult ? (
               <ClusterConfigEditor
                 cluster={clusterGetResult}
                 endpoint={clusterGraphqlEndpoint}
+                onClose={() => setShowClusterEditor(false)}
                 onSaved={() => onClusterConfigSaved?.()}
               />
+            ) : (
+              renderSpecialServiceCards(resolvedValue, handleCopy, copiedKey, () => setShowClusterEditor(true))
             )}
-            {renderSpecialServiceCards(resolvedValue, handleCopy, copiedKey)}
 
             {/* Properties Table */}
             <div>
@@ -307,13 +310,14 @@ export const DetailInspector: React.FC<DetailInspectorProps> = ({
 function renderSpecialServiceCards(
   data: any,
   onCopy: (text: string, id: string) => void,
-  copiedKey: string | null
+  copiedKey: string | null,
+  onEditCluster: () => void
 ) {
   if (!data || typeof data !== 'object') return null;
 
   // Check if it's a cluster config or contains clusterGetResult
   const clusterInfo = data.clusterConfigInfo || data;
-  const clusterGet = clusterInfo?.clusterGetResult;
+  const clusterGet = clusterInfo?.clusterGetResult || (clusterInfo?.guid && clusterInfo?.clusterConfig ? clusterInfo : null);
 
   // Support both new flattened structure and legacy nested structure
   const consul = clusterInfo?.consulConfig?.url
@@ -339,31 +343,27 @@ function renderSpecialServiceCards(
     <div className="space-y-3">
       {/* Cluster Meta */}
       {clusterGet && (
-        <div className="p-3 rounded-lg border border-indigo-900/50 bg-indigo-950/20 space-y-2">
-          <div className="flex items-center gap-2 text-indigo-300 text-xs font-semibold">
-            <Server className="w-3.5 h-3.5" />
-            <span>مشخصات کلاستر ({clusterGet.title || 'تنظیمات'})</span>
+        <button
+          type="button"
+          onClick={onEditCluster}
+          className="w-full text-right p-3 rounded-lg border border-indigo-900/50 bg-indigo-950/20 hover:bg-indigo-950/40 hover:border-indigo-700 transition-colors space-y-2 cursor-pointer"
+          title="برای ویرایش تنظیمات کلاستر کلیک کنید"
+        >
+          <div className="flex items-center justify-between gap-2">
+            <div className="flex items-center gap-2 text-indigo-300 text-xs font-semibold">
+              <Server className="w-3.5 h-3.5" />
+              <span>Cluster Config ({clusterGet.title || 'تنظیمات'})</span>
+            </div>
+            <span className="text-[10px] text-indigo-300">ویرایش تنظیمات ←</span>
           </div>
           <div className="text-[11px] space-y-1 text-slate-300 font-mono">
-            <div>
-              <span className="text-slate-500 font-sans">شناسه کلاستر: </span>
-              {clusterGet.id}
-            </div>
-            <div>
-              <span className="text-slate-500 font-sans">کانال انتشار: </span>
-              <span className="text-emerald-400 font-sans">
-                {clusterGet.releaseChannelsName || 'پیش‌فرض'}
-              </span>
-            </div>
+            <div><span className="text-slate-500 font-sans">شناسه کلاستر: </span>{clusterGet.id || clusterGet.guid}</div>
+            <div><span className="text-slate-500 font-sans">کانال انتشار: </span><span className="text-emerald-400 font-sans">{clusterGet.releaseChannelsName || 'پیش‌فرض'}</span></div>
             {clusterGet.clusterConfig?.exposure?.gatewayName && (
-              <div>
-                <span className="text-slate-500 font-sans">Gateway: </span>
-                {clusterGet.clusterConfig.exposure.gatewayName} (
-                {clusterGet.clusterConfig.exposure.ingressClassName || 'nginx'})
-              </div>
+              <div><span className="text-slate-500 font-sans">Gateway: </span>{clusterGet.clusterConfig.exposure.gatewayName} ({clusterGet.clusterConfig.exposure.ingressClassName || 'nginx'})</div>
             )}
           </div>
-        </div>
+        </button>
       )}
 
       {/* ArgoCD */}
