@@ -97,3 +97,6 @@ export const API_CONFIG: ServiceConfig = {
 
 export const STORAGE_KEY_CONFIG = 'json_crack_service_config';
 export const STORAGE_KEY_CUSTOM_DATA = 'json_crack_custom_data_cache';
+
+export const STORAGE_KEY_CLUSTER_CACHE = 'json_crack_cluster_tree_cache_v1';
+export const STORAGE_KEY_PRODUCT_ACTIONS = 'json_crack_product_action_states_v1';
