@@ -570,6 +570,7 @@ const App: React.FC = () => {
                 `Product-${productId.slice(0, 8)}`,
               solutionName: currentState?.helmBuildData?.solutionName || 'Solution',
               product: productId,
+              projectGuid,
             },
             serviceConfig
           );
