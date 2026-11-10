@@ -115,7 +115,7 @@ async function postGraphqlMutation<T>(
 const GENERATE_HELM_CHART_MUTATION = `mutation GenerateHemlChart($input: InstallModuleCommandInput!) {
   GenerateHemlChart(input: $input) {
     statusCode message requestId isSuccessful
-    data { version packageGuid_SC packageName solutionName product }
+    data { version { major minor build revision } packageGuid_SC packageName solutionName product }
     subStatuses { subject subStatusCode message subActionType }
   }
 }`;
@@ -133,6 +133,22 @@ const ADD_MODULE_PRODUCT_MUTATION = `mutation AddModuleProduct($input: InstallMo
     subStatuses { subject subStatusCode message subActionType }
   }
 }`;
+
+/**
+ * تبدیل نسخه متنی به ساختار System.Version مورد انتظار GraphQL.
+ */
+function toGraphqlVersion(version: string): { major: number; minor: number; build: number; revision: number } {
+  const parts = version.split('.').map((part) => Number.parseInt(part, 10));
+  if (parts.length < 2 || parts.length > 4 || parts.some((part) => !Number.isInteger(part) || part < 0)) {
+    throw new Error(`فرمت Version معتبر نیست: ${version}`);
+  }
+  return {
+    major: parts[0],
+    minor: parts[1],
+    build: parts.length > 2 ? parts[2] : -1,
+    revision: parts.length > 3 ? parts[3] : -1,
+  };
+}
 
 /**
  * 1) ساخت HelmChart از طریق GraphQL.
@@ -157,11 +173,12 @@ export async function executeRetryPublishPackage(
   config: ServiceConfig
 ): Promise<ApiResponse<string>> {
   const { projectGuid: _projectGuid, branchGuid: _branchGuid, ...input } = params;
+  const graphqlInput = { ...input, version: toGraphqlVersion(params.version) };
   return postGraphqlMutation<string>(
     config,
     'AddProductHelmChart',
     ADD_PRODUCT_HELM_CHART_MUTATION,
-    input,
+    graphqlInput,
     { projectGuid: params.projectGuid, branchGuid: params.branchGuid }
   );
 }
