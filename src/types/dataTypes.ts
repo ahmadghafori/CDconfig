@@ -174,6 +174,7 @@ export interface GraphNode {
   parentId?: string;
   itemCount?: number;
   isClusterNode?: boolean;
+  isRealmGroup?: boolean;
   isActionNode?: boolean;
   actionMetadata?: {
     productId: string;
