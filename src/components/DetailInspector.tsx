@@ -236,7 +236,6 @@ export const DetailInspector: React.FC<DetailInspectorProps> = ({
                 endpoint={clusterGraphqlEndpoint}
                 authToken={authToken}
                 onClose={() => setShowClusterEditor(false)}
-                onSaved={() => onClusterConfigSaved?.()}
               />
             )}
             {isClusterConfigNode && !clusterGetResult && (
