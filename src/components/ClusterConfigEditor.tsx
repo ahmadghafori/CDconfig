@@ -65,7 +65,8 @@ export const ClusterConfigEditor: React.FC<{ cluster: ClusterGetResult; endpoint
     setSaving(true); setNotice(null);
     const input = {
       clusterGuid: cluster.guid,
-      clusterType: (['Ingress', 'HTTPRoute', 'OpenShift'][clusterType] || 'Ingress'),
+      // Backend expects the numeric ClusterTypeEnum value (0=Ingress, 1=HTTPRoute, 2=OpenShift).
+      clusterType,
       exposure,
       clouds: clouds.map(c => ({ isActive: c.isActive, provider: c.provider, nsPrefix: c.nsPrefix || null })),
       kubernetes: { domainZone: domainZone.trim() || null },
