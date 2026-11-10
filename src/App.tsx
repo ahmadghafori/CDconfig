@@ -882,8 +882,6 @@ const App: React.FC = () => {
                 focusNodeId={searchFocusNodeId}
                 productActionStates={productActionStates}
                 onExecuteAction={handleExecuteAction}
-                clusterGraphqlEndpoint={serviceConfig.clusterGraphqlEndpoint}
-                onClusterConfigSaved={handleClusterConfigSaved}
               />
             )}
 
@@ -914,6 +912,8 @@ const App: React.FC = () => {
                 rawJsonData={dataResult?.data}
                 productActionStates={productActionStates}
                 onExecuteAction={handleExecuteAction}
+                clusterGraphqlEndpoint={serviceConfig.clusterGraphqlEndpoint}
+                onClusterConfigSaved={handleClusterConfigSaved}
               />
             )}
           </div>
