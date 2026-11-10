@@ -12,10 +12,10 @@ export interface LayoutOptions {
 }
 
 const DEFAULT_NODE_WIDTH = 270;
-const DEFAULT_ROW_HEIGHT = 26;
-const DEFAULT_HEADER_HEIGHT = 36;
+const DEFAULT_ROW_HEIGHT = 38;
+const DEFAULT_HEADER_HEIGHT = 50;
 const DEFAULT_HORIZ_SPACING = 85;
-const DEFAULT_VERT_SPACING = 20;
+const DEFAULT_VERT_SPACING = 32;
 
 /**
  * تشخیص نوع داده جیسون
