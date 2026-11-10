@@ -181,7 +181,7 @@ export async function executeAddModuleProduct(
   const headers = createHeaders(config, {
     'resource-type': 'PROJECT',
     'resource-ref-id': command.projectGuid,
-    'branch-id': command.branchGuid,
+    'branch-id': PROJECT_RESOURCE_BRANCH_ID,
   });
 
   return postJson<string>(targetUrl, headers, {
