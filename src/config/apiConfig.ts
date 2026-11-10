@@ -64,6 +64,9 @@ export interface ServiceConfig {
   /** آدرس اختصاصی GraphQL برای عملیات Cluster Config */
   clusterGraphqlEndpoint: string;
 
+  /** آدرس GraphQL مستقل برای عملیات محصول */
+  productActionsGraphqlEndpoint?: string;
+
   /**
    * مهلت زمانی درخواست به میلی‌ثانیه
    */
@@ -87,6 +90,7 @@ export const API_CONFIG: ServiceConfig = {
 
   // GraphQL endpoint for Cluster Config read/write operations
   clusterGraphqlEndpoint: 'https://studio-gateway-gen3.depna.ir/wrksp/graphql',
+  productActionsGraphqlEndpoint: 'https://studio-gateway-gen3.depna.ir/kcs/graphql',
 
   // منبع پیش‌فرض: دریافت زنده از سرویس
   defaultSource: 'live',
