@@ -96,9 +96,7 @@ function findJsonSearchMatch(data: any, query: string): JsonSearchMatch | null {
     for (const [key, child] of entries) {
       const childPath = Array.isArray(value)
         ? `${path}[${key}]`
-        : path === '$'
-          ? key
-          : `${path}.${key}`;
+        : `${path}.${key}`;
       const match = visit(child, childPath, [...ancestors, path], key);
       if (match) return match;
     }
