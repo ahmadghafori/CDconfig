@@ -909,7 +909,6 @@ const App: React.FC = () => {
                 onExecuteAction={handleExecuteAction}
                 clusterGraphqlEndpoint={serviceConfig.clusterGraphqlEndpoint}
                 authToken={serviceConfig.token}
-                onClusterConfigSaved={handleClusterConfigSaved}
               />
             )}
           </div>
