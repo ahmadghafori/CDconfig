@@ -129,18 +129,18 @@ export const TopNavbar: React.FC<TopNavbarProps> = ({
       </div>
 
       {/* Workspace Secondary Toolbar */}
-      <div className="flex flex-wrap items-center justify-between gap-4 px-6 py-2 bg-slate-950/60 text-xs">
+      <div className="flex flex-wrap items-center justify-between gap-4 px-6 py-3 bg-slate-950/60 text-xs relative">
         {/* Left: Search & Filter Controls */}
-        <div className="flex items-center gap-3 flex-1 max-w-xl">
+        <div className="flex items-center justify-center gap-3 flex-1 max-w-none">
           {/* Search Box */}
-          <div className="relative flex-1">
-            <Search className="w-3.5 h-3.5 absolute right-3 top-1/2 -translate-y-1/2 text-slate-500" />
+          <div className="relative w-full max-w-2xl">
+            <Search className="w-4 h-4 absolute right-3.5 top-1/2 -translate-y-1/2 text-slate-400" />
             <input
               type="text"
               value={searchQuery}
               onChange={(e) => onSearchChange(e.target.value)}
               placeholder="جستجو در پروژه‌ها، کلاسترها، محصولات یا فیلدها..."
-              className="w-full bg-slate-900 border border-slate-800 rounded-lg pl-3 pr-9 py-1.5 text-xs text-slate-200 placeholder:text-slate-500 focus:outline-none focus:border-emerald-500/50"
+              className="w-full bg-slate-900 border border-slate-700 rounded-xl pl-4 pr-10 py-3 text-sm text-slate-100 placeholder:text-slate-500 shadow-lg shadow-black/20 focus:outline-none focus:border-emerald-500/70 focus:ring-2 focus:ring-emerald-500/20 transition-all"
             />
             {searchQuery && (
               <button
