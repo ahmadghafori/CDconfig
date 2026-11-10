@@ -68,11 +68,30 @@ export const DetailInspector: React.FC<DetailInspectorProps> = ({
     ? node.rawPath.replace(/\\.clusterConfig$/, '')
     : '';
   const clusterOwner = clusterOwnerPath ? resolvePath(rawJsonData, clusterOwnerPath) : null;
+  // Also walk the selected node's ancestors. This handles graph paths with
+  // array indexes and nested clusterConfigInfo.clusterGetResult objects.
+  const pathTokens = (node.rawPath.replace(/^\\$\\.?/, '').match(/[^.\\[\\]]+/g) || []);
+  let ancestor: any = rawJsonData;
+  let owningCluster: any = null;
+  for (const token of pathTokens) {
+    if (ancestor && typeof ancestor === 'object' && ancestor.clusterConfig === resolvedValue) {
+      owningCluster = ancestor;
+      break;
+    }
+    ancestor = ancestor?.[token];
+  }
+  if (!owningCluster && ancestor && typeof ancestor === 'object' && ancestor.clusterConfig === resolvedValue) {
+    owningCluster = ancestor;
+  }
   const clusterGetResult =
     (resolvedValue?.guid && resolvedValue?.clusterConfig ? resolvedValue : null) ||
-    (clusterOwner?.guid && clusterOwner?.clusterConfig ? clusterOwner : null) ||
+    (clusterOwner?.clusterConfig ? clusterOwner : null) ||
+    (owningCluster?.clusterConfig ? owningCluster : null) ||
     resolvedValue?.clusterConfigInfo?.clusterGetResult ||
     resolvedValue?.clusterGetResult;
+  const clusterCardData = clusterGetResult
+    ? { clusterConfigInfo: { clusterGetResult } }
+    : resolvedValue;
 
   const handleCopy = (text: string, keyId: string) => {
     navigator.clipboard.writeText(text);
@@ -205,15 +224,24 @@ export const DetailInspector: React.FC<DetailInspectorProps> = ({
             )}
 
             {/* Special Cluster Info Card if applicable */}
-            {showClusterEditor && clusterGetResult ? (
+            {renderSpecialServiceCards(
+              clusterCardData,
+              handleCopy,
+              copiedKey,
+              () => setShowClusterEditor(true)
+            )}
+            {showClusterEditor && clusterGetResult && (
               <ClusterConfigEditor
                 cluster={clusterGetResult}
                 endpoint={clusterGraphqlEndpoint}
                 onClose={() => setShowClusterEditor(false)}
                 onSaved={() => onClusterConfigSaved?.()}
               />
-            ) : (
-              renderSpecialServiceCards(resolvedValue, handleCopy, copiedKey, () => setShowClusterEditor(true))
+            )}
+            {isClusterConfigNode && !clusterGetResult && (
+              <div className="rounded-lg border border-rose-800/60 bg-rose-950/20 p-3 text-xs text-rose-300">
+                اطلاعات اصلی کلاستر برای ویرایش پیدا نشد. نود باید از مسیر clusterGetResult.clusterConfig انتخاب شود.
+              </div>
             )}
 
             {/* Properties Table */}
