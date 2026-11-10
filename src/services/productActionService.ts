@@ -14,7 +14,8 @@ async function postGraphqlMutation<T>(
   config: ServiceConfig,
   operationName: string,
   query: string,
-  input: unknown
+  input: unknown,
+  context?: { projectGuid?: string; branchGuid?: string }
 ): Promise<ApiResponse<T>> {
   const headers: Record<string, string> = {
     'Content-Type': 'application/json',
@@ -24,9 +25,9 @@ async function postGraphqlMutation<T>(
 
   if (operationName === 'GenerateHemlChart' || operationName === 'AddProductHelmChart' || operationName === 'AddModuleProduct') {
     // هدرهای project/branch از ورودی‌های همان عملیات استخراج می‌شوند.
-    const context = input as { projectGuid?: string; branchGuid?: string };
-    if (context.projectGuid) headers['resource-ref-id'] = context.projectGuid;
-    if (context.branchGuid) headers['branch-id'] = context.branchGuid;
+    const headerContext = context || (input as { projectGuid?: string; branchGuid?: string });
+    if (headerContext.projectGuid) headers['resource-ref-id'] = headerContext.projectGuid;
+    if (headerContext.branchGuid) headers['branch-id'] = headerContext.branchGuid;
   }
 
   if (config.token?.trim()) {
@@ -159,7 +160,8 @@ export async function executeRetryPublishPackage(
     config,
     'AddProductHelmChart',
     ADD_PRODUCT_HELM_CHART_MUTATION,
-    input
+    input,
+    { projectGuid: params.projectGuid, branchGuid: params.branchGuid }
   );
 }
 
