@@ -93,8 +93,6 @@ async function postJson<T>(
   return parseApiResponse<T>(res);
 }
 
-const PROJECT_RESOURCE_BRANCH_ID = '00000000-0000-0000-0000-000000000000';
-
 function createHeaders(
   config: ServiceConfig,
   extra: Record<string, string> = {}
@@ -124,7 +122,7 @@ export async function executeBuildHelmChart(
   const headers = createHeaders(config, {
     'resource-type': 'PROJECT',
     'resource-ref-id': command.projectGuid,
-    'branch-id': PROJECT_RESOURCE_BRANCH_ID,
+    'branch-id': command.branchGuid,
   });
 
   return postJson<HelmChartBuildData>(targetUrl, headers, {
@@ -145,7 +143,7 @@ export async function executeRetryPublishPackage(
   const headers = createHeaders(config, {
     'resource-type': 'PROJECT',
     'resource-ref-id': params.projectGuid,
-    'branch-id': PROJECT_RESOURCE_BRANCH_ID,
+    'branch-id': params.branchGuid,
   });
 
   const payload: Omit<HelmChartPublishingResults, 'projectGuid'> = {
@@ -181,7 +179,7 @@ export async function executeAddModuleProduct(
   const headers = createHeaders(config, {
     'resource-type': 'PROJECT',
     'resource-ref-id': command.projectGuid,
-    'branch-id': PROJECT_RESOURCE_BRANCH_ID,
+    'branch-id': command.branchGuid,
   });
 
   return postJson<string>(targetUrl, headers, {
