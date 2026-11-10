@@ -50,7 +50,25 @@ export function buildJsonGraph(
   // طبق خواسته صریح کاربر: مواردی که isCluster برابر false هستند نباید نشان داده شوند
   let dataToProcess = rawData;
   if (Array.isArray(rawData)) {
-    dataToProcess = rawData.filter((item) => item && item.isCluster === true);
+    const clusterItems = rawData.filter((item) => item && item.isCluster === true);
+    const realmGroups = new Map<string, any[]>();
+
+    clusterItems.forEach((item, index) => {
+      const realmGuid = item?.clusterConfigInfo?.clusterGetResult?.realmGuid || item?.realmGuid;
+      // Keep records without a realm identifier separate rather than merging unrelated data.
+      const groupKey = typeof realmGuid === 'string' && realmGuid.trim()
+        ? realmGuid
+        : `__unassigned_realm_${index}`;
+      const group = realmGroups.get(groupKey) || [];
+      group.push(item);
+      realmGroups.set(groupKey, group);
+    });
+
+    dataToProcess = Array.from(realmGroups.entries()).map(([realmGuid, children]) => ({
+      __isRealmGroup: true,
+      realmGuid: realmGuid.startsWith('__unassigned_realm_') ? '' : realmGuid,
+      children,
+    }));
   }
 
   const nodes: GraphNode[] = [];
@@ -86,6 +104,9 @@ export function buildJsonGraph(
     const childNodeIds: string[] = [];
 
     // متادیتاهای خاص برای کلاسترها و ردیابی ProjectGuid
+    const isRealmGroup = isObject && data.__isRealmGroup === true;
+    const realmChildCount = isRealmGroup && Array.isArray(data.children) ? data.children.length : undefined;
+    const realmGuid = isRealmGroup ? data.realmGuid : undefined;
     const isCluster = data && typeof data === 'object' && (data.isCluster === true || !!data.clusterConfigInfo);
     const projectName = data && typeof data === 'object' ? data.projectName : null;
     const currentProjectGuid = (data && typeof data === 'object' && data.project) ? data.project : parentProjectGuid;
@@ -110,7 +131,8 @@ export function buildJsonGraph(
           // فقط در صورت باز بودن نود، فرزندان ساخته می‌شوند تا حافظه و DOM اشغال نشود
           if (!isCollapsed) {
             let itemLabel = `[${index}]`;
-            if (item?.projectName) itemLabel = `${item.projectName}`;
+            if (item?.__isRealmGroup) itemLabel = item.realmGuid ? `Realm · ${item.realmGuid}` : 'Realm بدون شناسه';
+            else if (item?.projectName) itemLabel = `${item.projectName}`;
             else if (item?.productName) itemLabel = `${item.productName}`;
             else if (item?.title) itemLabel = `${item.title}`;
             else if (item?.clusterConfigInfo?.clusterGetResult?.title) {
@@ -124,6 +146,8 @@ export function buildJsonGraph(
           let displayVal = '{Object}';
           if (itemType === 'array') {
             displayVal = `Array(${item.length})`;
+          } else if (item?.__isRealmGroup) {
+            displayVal = `Realm · ${item.realmGuid || 'بدون شناسه'}`;
           } else if (item?.projectName) {
             displayVal = item.projectName;
           } else if (item?.productName) {
@@ -309,6 +333,7 @@ export function buildJsonGraph(
       parentId,
       itemCount: isArray ? data.length : isObject ? Object.keys(data).length : 1,
       isClusterNode: isCluster,
+      isRealmGroup,
       actionMetadata: isProductItem
         ? {
             productId: data.product,
@@ -322,6 +347,8 @@ export function buildJsonGraph(
         projectName,
         title,
         productCount,
+        realmGuid,
+        realmChildCount,
       },
     });
 
