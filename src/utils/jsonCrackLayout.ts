@@ -50,18 +50,23 @@ export function buildJsonGraph(
   // طبق خواسته صریح کاربر: مواردی که isCluster برابر false هستند نباید نشان داده شوند
   let dataToProcess = rawData;
   if (Array.isArray(rawData)) {
-    const clusterItems = rawData.filter((item) => item && item.isCluster === true);
+    const clusterItems = rawData.filter((item) => {
+      if (!item || item.isCluster !== true) return false;
+      const realmGuid = item?.clusterConfigInfo?.clusterGetResult?.realmGuid || item?.realmGuid;
+      const productList = item?.productlist;
+      // Only show clusters that belong to a known Realm and contain products.
+      return typeof realmGuid === 'string' &&
+        realmGuid.trim().length > 0 &&
+        Array.isArray(productList) &&
+        productList.length > 0;
+    });
     const realmGroups = new Map<string, any[]>();
 
-    clusterItems.forEach((item, index) => {
+    clusterItems.forEach((item) => {
       const realmGuid = item?.clusterConfigInfo?.clusterGetResult?.realmGuid || item?.realmGuid;
-      // Keep records without a realm identifier separate rather than merging unrelated data.
-      const groupKey = typeof realmGuid === 'string' && realmGuid.trim()
-        ? realmGuid
-        : `__unassigned_realm_${index}`;
-      const group = realmGroups.get(groupKey) || [];
+      const group = realmGroups.get(realmGuid) || [];
       group.push(item);
-      realmGroups.set(groupKey, group);
+      realmGroups.set(realmGuid, group);
     });
 
     dataToProcess = Array.from(realmGroups.entries()).map(([realmGuid, children]) => ({
@@ -389,8 +394,8 @@ export function buildJsonGraph(
 
   // ایجاد ریشه داده
   const rootLabel = Array.isArray(dataToProcess)
-    ? `Root Array [${dataToProcess.length} items]`
-    : 'Root Object';
+    ? `BDP [${dataToProcess.length} Realm]`
+    : 'BDP';
   createNode(dataToProcess, rootLabel, '$', 0);
 
   // مرحله ۲: چیدمان درختی بدون هم‌پوشانی و با فواصل منظم
