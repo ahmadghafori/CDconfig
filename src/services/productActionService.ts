@@ -10,6 +10,42 @@ import {
  * ارسال Mutationهای پایپ‌لاین محصول از طریق GraphQL.
  * هدرهای Context پروژه و توکن در تمام درخواست‌ها ارسال می‌شوند.
  */
+type CloudProviderGraphqlEnum = 'Abriment' | 'ArvanCloud';
+
+/**
+ * تبدیل مقدار عددی enum دات‌نت به نام متنی مورد انتظار GraphQL.
+ * GraphQL برای Enum مقدار عددی نمی‌پذیرد.
+ */
+function normalizeCloudProvider(input: unknown): unknown {
+  if (!input || typeof input !== 'object' || Array.isArray(input)) return input;
+
+  const normalized = { ...(input as Record<string, unknown>) };
+  const key = Object.keys(normalized).find((name) => name.toLowerCase() === 'cloudprovider');
+  if (!key) return input;
+
+  const value = normalized[key];
+  const enumNames: Record<number, CloudProviderGraphqlEnum> = {
+    0: 'Abriment',
+    1: 'ArvanCloud',
+  };
+
+  if (typeof value === 'number') {
+    const enumName = enumNames[value];
+    if (!enumName) {
+      throw new Error(`مقدار CloudProvider نامعتبر است: ${value}. مقادیر مجاز: 0 (Abriment)، 1 (ArvanCloud).`);
+    }
+    normalized[key] = enumName;
+  } else if (typeof value === 'string' && /^\\d+$/.test(value)) {
+    const enumName = enumNames[Number(value)];
+    if (!enumName) {
+      throw new Error(`مقدار CloudProvider نامعتبر است: ${value}. مقادیر مجاز: 0 (Abriment)، 1 (ArvanCloud).`);
+    }
+    normalized[key] = enumName;
+  }
+
+  return normalized;
+}
+
 async function postGraphqlMutation<T>(
   config: ServiceConfig,
   operationName: string,
@@ -43,14 +79,14 @@ async function postGraphqlMutation<T>(
     headers.Authorization = token.startsWith('Bearer ') ? token : `Bearer ${token}`;
   }
 
-  const endpoint = config.productActionsGraphqlEndpoint?.trim() || 'https://studio-gateway-gen3.depna.ir/kcs/graphql';
+  const endpoint = config.productActionsGraphqlEndpoint?.trim() || 'https://studio-gateway-gen3.depna.ir/kcsrv/graphql';
   const response = await fetch(endpoint, {
     method: 'POST',
     headers,
     cache: 'no-store',
     body: JSON.stringify({
       query,
-      variables: { input },
+      variables: { input: normalizeCloudProvider(input) },
       operationName,
     }),
   });
