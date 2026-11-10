@@ -33,6 +33,7 @@ interface DetailInspectorProps {
   productActionStates?: Record<string, ProductActionState>;
   onExecuteAction?: (productId: string, actionType: 'helm' | 'publish' | 'module') => void;
   clusterGraphqlEndpoint?: string;
+  authToken?: string;
   onClusterConfigSaved?: () => void;
 }
 
@@ -43,6 +44,7 @@ export const DetailInspector: React.FC<DetailInspectorProps> = ({
   productActionStates = {},
   onExecuteAction,
   clusterGraphqlEndpoint = 'https://studio-gateway-gen3.depna.ir/wrksp/graphql',
+  authToken = '',
   onClusterConfigSaved,
 }) => {
   const [copiedKey, setCopiedKey] = useState<string | null>(null);
@@ -234,6 +236,7 @@ export const DetailInspector: React.FC<DetailInspectorProps> = ({
               <ClusterConfigEditor
                 cluster={clusterGetResult}
                 endpoint={clusterGraphqlEndpoint}
+                authToken={authToken}
                 onClose={() => setShowClusterEditor(false)}
                 onSaved={() => onClusterConfigSaved?.()}
               />
