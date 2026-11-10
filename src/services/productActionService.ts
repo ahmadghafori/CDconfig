@@ -146,7 +146,7 @@ export async function executeRetryPublishPackage(
     'branch-id': params.branchGuid,
   });
 
-  const payload: Omit<HelmChartPublishingResults, 'projectGuid'> = {
+  const payload: Omit<HelmChartPublishingResults, 'projectGuid' | 'branchGuid'> = {
     version: params.version || '0.0.0',
     packageGuid_SC: params.packageGuid_SC,
     packageName: params.packageName,
