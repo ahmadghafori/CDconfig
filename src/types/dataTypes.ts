@@ -183,6 +183,7 @@ export interface GraphNode {
     projectGuid: string;
     packageGuid?: string | null;
   };
+  sourceData?: any;
   metadata?: {
     isCluster?: boolean;
     projectName?: string | null;
