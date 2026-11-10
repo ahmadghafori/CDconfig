@@ -387,16 +387,33 @@ const App: React.FC = () => {
       const failureFromResponse = (
         operation: 'helm' | 'publish' | 'module',
         response: any
-      ) => ({
-        operation,
-        message: response.message || 'عملیات ناموفق بود.',
-        statusCode: response.statusCode,
-        httpStatus: response.httpStatus,
-        requestId: response.requestId,
-        exception: response.exception,
-        subStatuses: response.subStatuses,
-        rawResponse: response.rawResponse,
-      });
+      ) => {
+        const subStatuses = Array.isArray(response.subStatuses) ? response.subStatuses : [];
+        const subMessages = subStatuses
+          .map((item: any) => item?.message)
+          .filter((message: unknown): message is string => typeof message === 'string' && message.trim().length > 0);
+        const message = response.message || subMessages.join(' | ') || 'عملیات ناموفق بود.';
+
+        // The backend explicitly requests a toast for these sub-statuses.
+        const shouldShowToast = subStatuses.some((item: any) =>
+          String(item?.subActionType ?? '').toUpperCase() === 'SHOW_TOAST' ||
+          item?.subActionType === 10
+        );
+        if (shouldShowToast) {
+          window.alert(message);
+        }
+
+        return {
+          operation,
+          message,
+          statusCode: response.statusCode,
+          httpStatus: response.httpStatus,
+          requestId: response.requestId,
+          exception: response.exception,
+          subStatuses,
+          rawResponse: response.rawResponse,
+        };
+      };
 
       const recordOperation = (
         previous: ProductActionState | undefined,
