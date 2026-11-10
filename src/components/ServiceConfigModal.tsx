@@ -143,6 +143,7 @@ export const ServiceConfigModal: React.FC<ServiceConfigModalProps> = ({
         defaultSource: formData.defaultSource,
         timeoutMs: formData.timeoutMs,
         clusterGraphqlEndpoint: formData.clusterGraphqlEndpoint,
+        productActionsGraphqlEndpoint: formData.productActionsGraphqlEndpoint,
       },
       null,
       2
@@ -337,73 +338,23 @@ export const ServiceConfigModal: React.FC<ServiceConfigModalProps> = ({
             <input type="text" dir="ltr" value={formData.clusterGraphqlEndpoint || ''} onChange={e => setFormData({ ...formData, clusterGraphqlEndpoint: e.target.value })} placeholder="https://studio-gateway-gen3.depna.ir/wrksp/graphql" className="w-full bg-slate-900 border border-slate-700 rounded-lg px-3 py-2 text-xs font-mono text-slate-100 focus:outline-none focus:border-emerald-500" />
           </div>
 
-          {/* Product Action Pipeline Endpoints */}
-          <div className="space-y-4 p-4 rounded-xl border border-amber-900/40 bg-amber-950/20">
+          {/* Product Actions GraphQL Endpoint */}
+          <div className="space-y-3 p-4 rounded-xl border border-amber-900/40 bg-amber-950/20">
             <div className="flex items-center gap-2 text-xs font-semibold text-amber-300">
               <Sparkles className="w-4 h-4 text-amber-400" />
-              <span>آدرس‌های وب‌سرویس عملیات محصول (HelmChart & ModuleProduct):</span>
+              <span>آدرس GraphQL عملیات محصول</span>
             </div>
             <p className="text-[11px] text-slate-300 leading-relaxed">
-              این آدرس‌ها برای دکمه‌های عملیاتی هر محصول فراخوانی می‌شوند و می‌توانید آن‌ها را بر اساس محیط سرور تغییر دهید.
+              هر سه عملیات GenerateHemlChart، AddProductHelmChart و AddModuleProduct از همین آدرس استفاده می‌کنند.
             </p>
-
-            <div className="space-y-3 pt-1">
-              {/* HelmChart Endpoint */}
-              <div className="space-y-1">
-                <label className="text-xs font-medium text-slate-300 flex items-center justify-between">
-                  <span>۱. آدرس ساخت HelmChart (متد POST):</span>
-                  <span className="text-[10px] text-sky-400 font-mono">InstallModuleCommand</span>
-                </label>
-                <input
-                  type="text"
-                  value={formData.helmChartEndpoint || ''}
-                  onChange={(e) =>
-                    setFormData({ ...formData, helmChartEndpoint: e.target.value })
-                  }
-                  dir="ltr"
-                  placeholder="https://api.yourcompany.com/api/HelmChart/Build"
-                  className="w-full px-3 py-2 bg-slate-900 border border-slate-700/80 rounded-lg text-xs font-mono text-slate-200 focus:outline-none focus:border-amber-500"
-                />
-              </div>
-
-              {/* PublishPackage Endpoint */}
-              <div className="space-y-1">
-                <label className="text-xs font-medium text-slate-300 flex items-center justify-between">
-                  <span>۲. آدرس تلاش دوباره ثبت Package (متد POST):</span>
-                  <span className="text-[10px] text-amber-400 font-mono">HelmChartPublishingResults</span>
-                </label>
-                <input
-                  type="text"
-                  value={formData.publishPackageEndpoint || ''}
-                  onChange={(e) =>
-                    setFormData({ ...formData, publishPackageEndpoint: e.target.value })
-                  }
-                  dir="ltr"
-                  placeholder="https://api.yourcompany.com/api/HelmChart/Publish"
-                  className="w-full px-3 py-2 bg-slate-900 border border-slate-700/80 rounded-lg text-xs font-mono text-slate-200 focus:outline-none focus:border-amber-500"
-                />
-              </div>
-
-              {/* AddModuleProduct Endpoint */}
-              <div className="space-y-1">
-                <label className="text-xs font-medium text-slate-300 flex items-center justify-between">
-                  <span>۳. آدرس ساخت ModuleProduct (متد POST با مسیر PackageGuid):</span>
-                  <span className="text-[10px] text-indigo-400 font-mono">AddModuleProduct/{'{PackageGuid}'}</span>
-                </label>
-                <input
-                  type="text"
-                  value={formData.addModuleProductEndpoint || ''}
-                  onChange={(e) =>
-                    setFormData({ ...formData, addModuleProductEndpoint: e.target.value })
-                  }
-                  dir="ltr"
-                  placeholder="https://api.yourcompany.com/api/Module/AddModuleProduct/{PackageGuid}"
-                  className="w-full px-3 py-2 bg-slate-900 border border-slate-700/80 rounded-lg text-xs font-mono text-slate-200 focus:outline-none focus:border-amber-500"
-                />
-              </div>
+            <div className="space-y-1">
+              <label className="text-xs font-medium text-slate-300">Endpoint مربوط به KCS GraphQL:</label>
+              <input type="text" value={formData.productActionsGraphqlEndpoint || ''}
+                onChange={(e) => setFormData({ ...formData, productActionsGraphqlEndpoint: e.target.value })}
+                dir="ltr" placeholder="https://studio-gateway-gen3.depna.ir/kcs/graphql"
+                className="w-full px-3 py-2 bg-slate-900 border border-slate-700/80 rounded-lg text-xs font-mono text-slate-200 focus:outline-none focus:border-amber-500" />
             </div>
           </div>
-
           {/* Filter Notice */}
           <div className="p-3 bg-slate-950/50 rounded-xl border border-slate-800 text-[11px] text-slate-300 flex items-center justify-between">
             <span className="flex items-center gap-1.5">
