@@ -63,7 +63,9 @@ export const DetailInspector: React.FC<DetailInspectorProps> = ({
   if (!node) return null;
 
   // Resolve JSON value from rawPath
-  const resolvedValue = resolvePath(rawJsonData, node.rawPath);
+  // Graph grouping creates virtual Realm paths; prefer the original source object
+  // attached to the node so Cluster Config editing still resolves the real payload.
+  const resolvedValue = node.sourceData ?? resolvePath(rawJsonData, node.rawPath);
   const clusterOwnerPath = isClusterConfigNode
     ? node.rawPath.replace(/\.clusterConfig$/, '')
     : '';
