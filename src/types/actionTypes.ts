@@ -15,6 +15,7 @@ export interface HelmChartPublishingResults {
   packageName?: string;
   solutionName?: string;
   product?: string;
+  projectGuid: string;
 }
 
 export interface SubStatusItem {
