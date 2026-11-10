@@ -571,6 +571,7 @@ const App: React.FC = () => {
               solutionName: currentState?.helmBuildData?.solutionName || 'Solution',
               product: productId,
               projectGuid,
+              branchGuid,
             },
             serviceConfig
           );
