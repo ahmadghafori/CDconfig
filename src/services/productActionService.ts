@@ -35,7 +35,8 @@ async function postGraphqlMutation<T>(
     headers.Authorization = token.startsWith('Bearer ') ? token : `Bearer ${token}`;
   }
 
-  const response = await fetch(config.clusterGraphqlEndpoint, {
+  const endpoint = config.productActionsGraphqlEndpoint?.trim() || 'https://studio-gateway-gen3.depna.ir/kcs/graphql';
+  const response = await fetch(endpoint, {
     method: 'POST',
     headers,
     cache: 'no-store',
