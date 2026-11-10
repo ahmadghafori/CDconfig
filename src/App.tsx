@@ -349,11 +349,6 @@ const App: React.FC = () => {
     saveActiveServiceConfig(newConfig);
   };
 
-  const handleClusterConfigSaved = useCallback(async () => {
-    setSelectedNode(null);
-    await loadData(undefined, true);
-  }, [loadData]);
-
   // When clicking on a cluster item in Topology view, jump to it or inspect it
   const handleSelectClusterItem = (item: ClusterItem) => {
     // Find matching graph node if available
