@@ -119,7 +119,39 @@ export function buildJsonGraph(
       typeof data.product === 'string' &&
       typeof data.branchMain === 'string';
 
-    if (isArray) {
+    if (isRealmGroup) {
+      // Realm is the parent card itself. Render its cluster records directly as
+      // child nodes; do not create an intermediate "children" array card.
+      if (Array.isArray(data.children)) {
+        data.children.forEach((item: any, index: number) => {
+          if (isCollapsed) return;
+          const itemLabel =
+            item?.projectName ||
+            item?.productName ||
+            item?.title ||
+            item?.clusterConfigInfo?.clusterGetResult?.title ||
+            `Cluster ${index + 1}`;
+          const childId = createNode(
+            item,
+            String(itemLabel),
+            `${rawPath}.children[${index}]`,
+            depth + 1,
+            currentId,
+            currentProjectGuid
+          );
+          childNodeIds.push(childId);
+        });
+      }
+
+      fields.push({
+        id: `${currentId}_row_children`,
+        key: 'کلاسترهای Realm',
+        value: `${realmChildCount ?? 0} کلاستر`,
+        valueType: 'string',
+        isExpandable: true,
+        isExpanded: !isCollapsed,
+      });
+    } else if (isArray) {
       data.forEach((item: any, index: number) => {
         const itemType = getValueType(item);
         const itemPath = `${rawPath}[${index}]`;
@@ -419,6 +451,26 @@ export function buildJsonGraph(
 
   // مرحله ۳: ایجاد یال‌های بهینه
   nodes.forEach((node) => {
+    // A Realm group fans out directly to its cluster cards from one clean anchor.
+    if (node.isRealmGroup && node.childNodeIds.length > 0) {
+      const anchorY = node.y + headerHeight / 2;
+      node.childNodeIds.forEach((childId, index) => {
+        const childNode = nodeMap.get(childId);
+        if (!childNode) return;
+        edges.push({
+          id: `edge_${node.id}_realm_child_${index}_${childId}`,
+          sourceNodeId: node.id,
+          sourceRowId: `${node.id}_row_children`,
+          targetNodeId: childId,
+          startX: node.x + node.width,
+          startY: anchorY,
+          endX: childNode.x,
+          endY: childNode.y + headerHeight / 2,
+          label: 'Realm',
+        });
+      });
+    }
+
     node.fields.forEach((field, rowIndex) => {
       if (field.childNodeId) {
         const childNode = nodeMap.get(field.childNodeId);
