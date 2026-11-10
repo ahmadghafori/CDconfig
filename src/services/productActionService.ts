@@ -24,10 +24,18 @@ async function postGraphqlMutation<T>(
   };
 
   if (operationName === 'GenerateHemlChart' || operationName === 'AddProductHelmChart' || operationName === 'AddModuleProduct') {
-    // هدرهای project/branch از ورودی‌های همان عملیات استخراج می‌شوند.
+    // شناسه‌ها باید از Context فعلی پروژه و شاخه main بیایند.
+    // در صورت ناقص بودن Context، درخواست ناقص به بک‌اند ارسال نشود.
     const headerContext = context || (input as { projectGuid?: string; branchGuid?: string });
-    if (headerContext.projectGuid) headers['resource-ref-id'] = headerContext.projectGuid;
-    if (headerContext.branchGuid) headers['branch-id'] = headerContext.branchGuid;
+    const projectGuid = headerContext.projectGuid?.trim();
+    const branchGuid = headerContext.branchGuid?.trim();
+
+    if (!projectGuid || !branchGuid) {
+      throw new Error('ارسال عملیات ممکن نیست: شناسه پروژه یا شاخه اصلی (main) موجود نیست.');
+    }
+
+    headers['resource-ref-id'] = projectGuid;
+    headers['branch-id'] = branchGuid;
   }
 
   if (config.token?.trim()) {
