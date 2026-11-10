@@ -54,7 +54,7 @@ export const DetailInspector: React.FC<DetailInspectorProps> = ({
   // Selecting the clusterConfig child in the graph should open its editor,
   // while the mutation still needs the owning ClusterGetResult (guid + config).
   const isClusterConfigNode = !!node && (
-    node.label === 'clusterConfig' || /(?:^|\\.)clusterConfig$/.test(node.rawPath)
+    node.label === 'clusterConfig' || /(?:^|\.)clusterConfig$/.test(node.rawPath)
   );
   useEffect(() => {
     setShowClusterEditor(isClusterConfigNode);
@@ -65,12 +65,12 @@ export const DetailInspector: React.FC<DetailInspectorProps> = ({
   // Resolve JSON value from rawPath
   const resolvedValue = resolvePath(rawJsonData, node.rawPath);
   const clusterOwnerPath = isClusterConfigNode
-    ? node.rawPath.replace(/\\.clusterConfig$/, '')
+    ? node.rawPath.replace(/\.clusterConfig$/, '')
     : '';
   const clusterOwner = clusterOwnerPath ? resolvePath(rawJsonData, clusterOwnerPath) : null;
   // Also walk the selected node's ancestors. This handles graph paths with
   // array indexes and nested clusterConfigInfo.clusterGetResult objects.
-  const pathTokens = (node.rawPath.replace(/^\\$\\.?/, '').match(/[^.\\[\\]]+/g) || []);
+  const pathTokens = node.rawPath.replace(/^\$\.?/, '').split(/[.\[\]]+/).filter(Boolean);
   let ancestor: any = rawJsonData;
   let owningCluster: any = null;
   for (const token of pathTokens) {
