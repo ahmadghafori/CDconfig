@@ -913,6 +913,7 @@ const App: React.FC = () => {
                 productActionStates={productActionStates}
                 onExecuteAction={handleExecuteAction}
                 clusterGraphqlEndpoint={serviceConfig.clusterGraphqlEndpoint}
+                authToken={serviceConfig.token}
                 onClusterConfigSaved={handleClusterConfigSaved}
               />
             )}
