@@ -187,6 +187,8 @@ export interface GraphNode {
     projectName?: string | null;
     title?: string;
     productCount?: number;
+    realmGuid?: string;
+    realmChildCount?: number;
   };
 }
 
