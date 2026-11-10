@@ -20,7 +20,7 @@ const UPDATE_MUTATION = `mutation cluster_UpdateClusterConfig($input: UpdateConf
 const field = 'w-full rounded-lg border border-slate-700 bg-slate-950 px-3 py-2 text-xs text-slate-100 focus:border-emerald-500 focus:outline-none';
 const label = 'mb-1 block text-[11px] text-slate-400';
 
-export const ClusterConfigEditor: React.FC<{ cluster: ClusterGetResult; endpoint: string; onClose: () => void; onSaved: () => void }> = ({ cluster, endpoint, onClose, onSaved }) => {
+export const ClusterConfigEditor: React.FC<{ cluster: ClusterGetResult; endpoint: string; authToken?: string; onClose: () => void; onSaved: () => void }> = ({ cluster, endpoint, authToken = '', onClose, onSaved }) => {
   const config = cluster.clusterConfig || ({} as any);
   const argo: any = config.argoCD || {};
   const template = argo.applicationTemplate || {};
@@ -41,11 +41,17 @@ export const ClusterConfigEditor: React.FC<{ cluster: ClusterGetResult; endpoint
   const [loadingRealms, setLoadingRealms] = useState(false);
   const [saving, setSaving] = useState(false);
   const [notice, setNotice] = useState<{ ok: boolean; text: string } | null>(null);
+  const authHeaders = (): Record<string, string> => {
+    const tokenValue = authToken.trim();
+    return tokenValue
+      ? { Authorization: tokenValue.startsWith('Bearer ') ? tokenValue : `Bearer ${tokenValue}` }
+      : {};
+  };
 
   const refreshRealms = async () => {
     setLoadingRealms(true);
     try {
-      const response = await fetch(endpoint, { method: 'POST', headers: { 'Content-Type': 'application/json', Accept: 'application/json' }, cache: 'no-store', body: JSON.stringify({ query: REALM_QUERY, variables: { input: { realmType: 'SHARED' } }, operationName: 'identityUserRealm' }) });
+      const response = await fetch(endpoint, { method: 'POST', headers: { 'Content-Type': 'application/json', Accept: 'application/json', ...authHeaders() }, cache: 'no-store', body: JSON.stringify({ query: REALM_QUERY, variables: { input: { realmType: 'SHARED' } }, operationName: 'identityUserRealm' }) });
       if (!response.ok) throw new Error(`دریافت Realm ناموفق بود: HTTP ${response.status}`);
       const json = await response.json();
       if (json.errors?.length) throw new Error(json.errors.map((e: any) => e.message).join(' | '));
@@ -76,7 +82,7 @@ export const ClusterConfigEditor: React.FC<{ cluster: ClusterGetResult; endpoint
       automated: { prune, selfHeal },
     };
     try {
-      const response = await fetch(endpoint, { method: 'POST', headers: { 'Content-Type': 'application/json', Accept: 'application/json' }, body: JSON.stringify({ query: UPDATE_MUTATION, variables: { input }, operationName: 'cluster_UpdateClusterConfig' }) });
+      const response = await fetch(endpoint, { method: 'POST', headers: { 'Content-Type': 'application/json', Accept: 'application/json', ...authHeaders() }, body: JSON.stringify({ query: UPDATE_MUTATION, variables: { input }, operationName: 'cluster_UpdateClusterConfig' }) });
       if (!response.ok) throw new Error(`ثبت تنظیمات ناموفق بود: HTTP ${response.status}`);
       const json = await response.json();
       if (json.errors?.length) throw new Error(json.errors.map((e: any) => e.message).join(' | '));
