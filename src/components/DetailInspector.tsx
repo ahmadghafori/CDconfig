@@ -54,7 +54,7 @@ export const DetailInspector: React.FC<DetailInspectorProps> = ({
 
   // Resolve JSON value from rawPath
   const resolvedValue = resolvePath(rawJsonData, node.rawPath);
-  const clusterGetResult = resolvedValue?.clusterConfigInfo?.clusterGetResult || resolvedValue?.clusterGetResult;
+  const clusterGetResult = (resolvedValue?.guid && resolvedValue?.clusterConfig ? resolvedValue : null) || resolvedValue?.clusterConfigInfo?.clusterGetResult || resolvedValue?.clusterGetResult;
 
   const handleCopy = (text: string, keyId: string) => {
     navigator.clipboard.writeText(text);
