@@ -61,6 +61,9 @@ export interface ServiceConfig {
    */
   addModuleProductEndpoint: string;
 
+  /** آدرس اختصاصی GraphQL برای عملیات Cluster Config */
+  clusterGraphqlEndpoint: string;
+
   /**
    * مهلت زمانی درخواست به میلی‌ثانیه
    */
@@ -81,6 +84,9 @@ export const API_CONFIG: ServiceConfig = {
   helmChartEndpoint: 'https://api.yourcompany.com/api/HelmChart/Build',
   publishPackageEndpoint: 'https://api.yourcompany.com/api/HelmChart/Publish',
   addModuleProductEndpoint: 'https://api.yourcompany.com/api/Module/AddModuleProduct',
+
+  // GraphQL endpoint for Cluster Config read/write operations
+  clusterGraphqlEndpoint: 'https://studio-gateway-gen3.depna.ir/wrksp/graphql',
 
   // منبع پیش‌فرض: دریافت زنده از سرویس
   defaultSource: 'live',

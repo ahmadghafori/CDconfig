@@ -24,6 +24,7 @@ import {
 } from 'lucide-react';
 import { GraphNode } from '../types/dataTypes';
 import { ProductActionState } from '../types/actionTypes';
+import { ClusterConfigEditor } from './ClusterConfigEditor';
 
 interface DetailInspectorProps {
   node: GraphNode | null;
@@ -31,6 +32,8 @@ interface DetailInspectorProps {
   rawJsonData: any;
   productActionStates?: Record<string, ProductActionState>;
   onExecuteAction?: (productId: string, actionType: 'helm' | 'publish' | 'module') => void;
+  clusterGraphqlEndpoint?: string;
+  onClusterConfigSaved?: () => void;
 }
 
 export const DetailInspector: React.FC<DetailInspectorProps> = ({
@@ -39,6 +42,8 @@ export const DetailInspector: React.FC<DetailInspectorProps> = ({
   rawJsonData,
   productActionStates = {},
   onExecuteAction,
+  clusterGraphqlEndpoint = 'https://studio-gateway-gen3.depna.ir/wrksp/graphql',
+  onClusterConfigSaved,
 }) => {
   const [copiedKey, setCopiedKey] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState<'details' | 'pipeline' | 'json'>(
@@ -49,6 +54,7 @@ export const DetailInspector: React.FC<DetailInspectorProps> = ({
 
   // Resolve JSON value from rawPath
   const resolvedValue = resolvePath(rawJsonData, node.rawPath);
+  const clusterGetResult = resolvedValue?.clusterConfigInfo?.clusterGetResult || resolvedValue?.clusterGetResult;
 
   const handleCopy = (text: string, keyId: string) => {
     navigator.clipboard.writeText(text);
@@ -181,6 +187,13 @@ export const DetailInspector: React.FC<DetailInspectorProps> = ({
             )}
 
             {/* Special Cluster Info Card if applicable */}
+            {clusterGetResult && (
+              <ClusterConfigEditor
+                cluster={clusterGetResult}
+                endpoint={clusterGraphqlEndpoint}
+                onSaved={() => onClusterConfigSaved?.()}
+              />
+            )}
             {renderSpecialServiceCards(resolvedValue, handleCopy, copiedKey)}
 
             {/* Properties Table */}

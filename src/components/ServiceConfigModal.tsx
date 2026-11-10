@@ -142,6 +142,7 @@ export const ServiceConfigModal: React.FC<ServiceConfigModalProps> = ({
         httpMethod: 'GET',
         defaultSource: formData.defaultSource,
         timeoutMs: formData.timeoutMs,
+        clusterGraphqlEndpoint: formData.clusterGraphqlEndpoint,
       },
       null,
       2
@@ -327,6 +328,13 @@ export const ServiceConfigModal: React.FC<ServiceConfigModalProps> = ({
                 </div>
               )}
             </div>
+          </div>
+
+          {/* Cluster Config GraphQL Endpoint */}
+          <div className="space-y-2 p-4 rounded-xl border border-emerald-900/50 bg-emerald-950/15">
+            <div className="text-xs font-semibold text-emerald-300">وب‌سرویس اختصاصی تنظیمات کلاستر (GraphQL)</div>
+            <label className="text-[11px] text-slate-400">آدرس GraphQL برای دریافت Realm و ثبت Cluster Config</label>
+            <input type="text" dir="ltr" value={formData.clusterGraphqlEndpoint || ''} onChange={e => setFormData({ ...formData, clusterGraphqlEndpoint: e.target.value })} placeholder="https://studio-gateway-gen3.depna.ir/wrksp/graphql" className="w-full bg-slate-900 border border-slate-700 rounded-lg px-3 py-2 text-xs font-mono text-slate-100 focus:outline-none focus:border-emerald-500" />
           </div>
 
           {/* Product Action Pipeline Endpoints */}
@@ -525,7 +533,7 @@ export const ServiceConfigModal: React.FC<ServiceConfigModalProps> = ({
   "serviceUrl": "${formData.serviceUrl}",
   "token": "${formData.token || 'YOUR_TOKEN_HERE'}",
   "httpMethod": "GET",
-  "defaultSource": "${formData.defaultSource}"
+  "defaultSource": "${formData.defaultSource}",\n  "clusterGraphqlEndpoint": "${formData.clusterGraphqlEndpoint}"
 }`}
               </pre>
             )}
