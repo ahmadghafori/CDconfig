@@ -7,6 +7,7 @@ export interface InstallModuleCommand {
   projectGuid: string;
   productGuid: string;
   moduleType?: number[] | null;
+  packageGuid?: string | null;
 }
 
 export interface HelmChartPublishingResults {
