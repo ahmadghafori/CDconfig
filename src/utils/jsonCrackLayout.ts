@@ -371,6 +371,7 @@ export function buildJsonGraph(
       itemCount: isArray ? data.length : isObject ? Object.keys(data).length : 1,
       isClusterNode: isCluster,
       isRealmGroup,
+      sourceData: data,
       actionMetadata: isProductItem
         ? {
             productId: data.product,
