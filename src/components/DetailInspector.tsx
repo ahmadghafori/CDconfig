@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import {
   X,
   Copy,
@@ -51,11 +51,28 @@ export const DetailInspector: React.FC<DetailInspectorProps> = ({
     node?.isActionNode ? 'pipeline' : 'details'
   );
 
+  // Selecting the clusterConfig child in the graph should open its editor,
+  // while the mutation still needs the owning ClusterGetResult (guid + config).
+  const isClusterConfigNode = !!node && (
+    node.label === 'clusterConfig' || /(?:^|\\.)clusterConfig$/.test(node.rawPath)
+  );
+  useEffect(() => {
+    setShowClusterEditor(isClusterConfigNode);
+  }, [node?.id, isClusterConfigNode]);
+
   if (!node) return null;
 
   // Resolve JSON value from rawPath
   const resolvedValue = resolvePath(rawJsonData, node.rawPath);
-  const clusterGetResult = (resolvedValue?.guid && resolvedValue?.clusterConfig ? resolvedValue : null) || resolvedValue?.clusterConfigInfo?.clusterGetResult || resolvedValue?.clusterGetResult;
+  const clusterOwnerPath = isClusterConfigNode
+    ? node.rawPath.replace(/\\.clusterConfig$/, '')
+    : '';
+  const clusterOwner = clusterOwnerPath ? resolvePath(rawJsonData, clusterOwnerPath) : null;
+  const clusterGetResult =
+    (resolvedValue?.guid && resolvedValue?.clusterConfig ? resolvedValue : null) ||
+    (clusterOwner?.guid && clusterOwner?.clusterConfig ? clusterOwner : null) ||
+    resolvedValue?.clusterConfigInfo?.clusterGetResult ||
+    resolvedValue?.clusterGetResult;
 
   const handleCopy = (text: string, keyId: string) => {
     navigator.clipboard.writeText(text);
