@@ -394,6 +394,8 @@ export const GraphCanvas: React.FC<GraphCanvasProps> = ({
                 className={`flex items-center justify-between px-3 py-2 border-b rounded-t-xl transition-colors ${
                   node.isActionNode
                     ? 'bg-amber-950/40 border-amber-900/50'
+                    : node.isRealmGroup
+                    ? 'bg-cyan-950/50 border-cyan-800/50'
                     : node.isClusterNode
                     ? 'bg-indigo-950/50 border-indigo-900/40'
                     : node.type === 'array'
@@ -406,6 +408,8 @@ export const GraphCanvas: React.FC<GraphCanvasProps> = ({
                     className={`font-mono text-[10px] font-semibold px-1 rounded flex items-center gap-0.5 ${
                       node.isActionNode
                         ? 'text-amber-300 bg-amber-900/60'
+                        : node.isRealmGroup
+                        ? 'text-cyan-200 bg-cyan-900/60'
                         : node.isClusterNode
                         ? 'text-indigo-300 bg-indigo-900/60'
                         : node.type === 'array'
@@ -418,6 +422,8 @@ export const GraphCanvas: React.FC<GraphCanvasProps> = ({
                         <Zap className="w-2.5 h-2.5" />
                         <span>Action</span>
                       </>
+                    ) : node.isRealmGroup ? (
+                      'Realm'
                     ) : node.isClusterNode ? (
                       'Cluster'
                     ) : node.type === 'array' ? (
@@ -436,7 +442,7 @@ export const GraphCanvas: React.FC<GraphCanvasProps> = ({
 
                 <div className="flex items-center gap-1.5">
                   <span className="text-[10px] text-slate-400 font-mono">
-                    {node.itemCount !== undefined ? `${node.itemCount}` : ''}
+                    {node.isRealmGroup ? `${node.metadata?.realmChildCount ?? 0} فرزند` : node.itemCount !== undefined ? `${node.itemCount}` : ''}
                   </span>
 
                   {node.fields.some((f) => f.isExpandable) && (
