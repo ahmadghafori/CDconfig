@@ -87,6 +87,20 @@ async function postGraphqlMutation<T>(
     };
   }
 
+  const responseData = result.data ?? null;
+  if (operationName === 'GenerateHemlChart' && responseData?.version && typeof responseData.version === 'object') {
+    const versionParts = [
+      responseData.version.major,
+      responseData.version.minor,
+      responseData.version.build,
+      responseData.version.revision,
+    ];
+    while (versionParts.length > 2 && (versionParts[versionParts.length - 1] === -1 || versionParts[versionParts.length - 1] == null)) {
+      versionParts.pop();
+    }
+    responseData.version = versionParts.join('.');
+  }
+
   const subStatuses = Array.isArray(result.subStatuses) ? result.subStatuses : undefined;
   const subMessages = (subStatuses || [])
     .map((item: any) => item?.message)
@@ -103,7 +117,7 @@ async function postGraphqlMutation<T>(
 
   return {
     ...result,
-    data: result.data ?? null,
+    data: responseData,
     statusCode: typeof result.statusCode === 'number' ? result.statusCode : response.status,
     httpStatus: response.status,
     message: result.message || subMessages.join(' | ') || (isSuccessful ? 'عملیات با موفقیت انجام شد.' : 'سرور موفقیت عملیات را تأیید نکرد.'),
