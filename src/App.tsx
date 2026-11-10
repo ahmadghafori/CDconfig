@@ -371,9 +371,16 @@ const App: React.FC = () => {
       const meta = nodeWithMeta?.actionMetadata;
       const currentState = productActionStates[productId];
 
-      const branchGuid = meta?.branchGuid || currentState?.branchGuid || '';
-      const projectGuid = meta?.projectGuid || currentState?.projectGuid || '';
+      // Context must come from the currently loaded BDP tree.
+      // Do not fall back to persisted action state: it may contain a stale project/branch.
+      const branchGuid = meta?.branchGuid?.trim() || '';
+      const projectGuid = meta?.projectGuid?.trim() || '';
       const productName = meta?.productName || currentState?.productName || 'محصول';
+
+      if (!meta || !projectGuid || !branchGuid) {
+        window.alert('شناسه پروژه یا شاخه اصلی (main) از اطلاعات فعلی BDP دریافت نشد. ابتدا اطلاعات را تازه‌سازی کنید.');
+        return;
+      }
 
       const clearOperationError = (
         errors: ProductActionState['operationErrors'],
