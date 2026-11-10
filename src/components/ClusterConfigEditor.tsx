@@ -20,7 +20,7 @@ const UPDATE_MUTATION = `mutation cluster_UpdateClusterConfig($input: UpdateConf
 const field = 'w-full rounded-lg border border-slate-700 bg-slate-950 px-3 py-2 text-xs text-slate-100 focus:border-emerald-500 focus:outline-none';
 const label = 'mb-1 block text-[11px] text-slate-400';
 
-export const ClusterConfigEditor: React.FC<{ cluster: ClusterGetResult; endpoint: string; authToken?: string; onClose: () => void; onSaved: () => void }> = ({ cluster, endpoint, authToken = '', onClose, onSaved }) => {
+export const ClusterConfigEditor: React.FC<{ cluster: ClusterGetResult; endpoint: string; authToken?: string; onClose: () => void; }> = ({ cluster, endpoint, authToken = '', onClose }) => {
   const config = cluster.clusterConfig || ({} as any);
   const argo: any = config.argoCD || {};
   const template = argo.applicationTemplate || {};
@@ -93,7 +93,6 @@ export const ClusterConfigEditor: React.FC<{ cluster: ClusterGetResult; endpoint
         throw new Error(sub || result.message || 'سرور ثبت تنظیمات را تأیید نکرد (data=false).');
       }
       setNotice({ ok: true, text: result.message || 'تنظیمات کلاستر ثبت شد.' });
-      onSaved();
     } catch (e: any) {
       setNotice({ ok: false, text: e.message?.includes('Failed to fetch') ? 'ارسال GraphQL ناموفق بود؛ CORS و شبکه را بررسی کنید.' : e.message });
     } finally { setSaving(false); }
