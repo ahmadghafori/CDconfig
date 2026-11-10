@@ -47,7 +47,7 @@ interface JsonSearchMatch {
 }
 
 /**
- * Find the first matching JSON item and return its path plus all parent paths.
+ * Find the first matching JSON item and return its graph path plus parent paths.
  * Primitive values are attributed to the object/array row that displays them.
  */
 function findJsonSearchMatch(data: any, query: string): JsonSearchMatch | null {
@@ -70,7 +70,46 @@ function findJsonSearchMatch(data: any, query: string): JsonSearchMatch | null {
     if (typeof value !== 'object') {
       return containsQuery(keyName) || containsQuery(value)
         ? {
-            path: ancestors[ancestors.length - 1] || '
+            path: ancestors[ancestors.length - 1] || path,
+            ancestors,
+            label: String(keyName ?? value),
+          }
+        : null;
+    }
+
+    const label =
+      value?.projectName ||
+      value?.productName ||
+      value?.title ||
+      value?.clusterConfigInfo?.clusterGetResult?.title ||
+      keyName ||
+      (path === '$' ? 'Root' : path);
+
+    if (containsQuery(keyName) || containsQuery(label)) {
+      return { path, ancestors, label: String(label) };
+    }
+
+    const entries: Array<[string, any]> = Array.isArray(value)
+      ? value.map((item, index) => [String(index), item])
+      : Object.entries(value);
+
+    for (const [key, child] of entries) {
+      const childPath = Array.isArray(value)
+        ? `${path}[${key}]`
+        : path === '$'
+          ? key
+          : `${path}.${key}`;
+      const match = visit(child, childPath, [...ancestors, path], key);
+      if (match) return match;
+    }
+
+    return null;
+  };
+
+  return visit(data, '$', []);
+}
+
+const App: React.FC = () => {
   const [serviceConfig, setServiceConfig] = useState<ServiceConfig>(getActiveServiceConfig);
   const [dataResult, setDataResult] = useState<DataFetchResult | null>(null);
   const [isLoading, setIsLoading] = useState<boolean>(true);
