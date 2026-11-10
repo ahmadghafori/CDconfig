@@ -22,7 +22,7 @@ const label = 'mb-1 block text-[11px] text-slate-400';
 
 export const ClusterConfigEditor: React.FC<{ cluster: ClusterGetResult; endpoint: string; onSaved: () => void }> = ({ cluster, endpoint, onSaved }) => {
   const config = cluster.clusterConfig || ({} as any);
-  const argo = config.argoCD || {};
+  const argo: any = config.argoCD || {};
   const template = argo.applicationTemplate || {};
   const auto = template.syncpolicy?.automated || {};
   const [clusterType, setClusterType] = useState(Number(config.clusterType ?? 0));
